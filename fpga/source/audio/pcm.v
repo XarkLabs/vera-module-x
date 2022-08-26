@@ -159,6 +159,9 @@ module pcm(
                 right_output_next = mode_stereo ? right_sample : left_sample;
                 state_next        = IDLE;
             end
+
+            default: begin
+            end
         endcase
 
         if (state_r != DONE && fifo_empty) begin
@@ -211,6 +214,8 @@ module pcm(
     endcase
 
     reg signed [21:0] left_scaled_r, right_scaled_r;
+
+    wire unused_bits = &{1'b0, left_scaled_r[5:0], right_scaled_r[5:0]};
 
     always @(posedge clk) begin
         left_scaled_r  <= left_output_r  * volume_log;

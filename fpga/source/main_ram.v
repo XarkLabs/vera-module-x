@@ -80,7 +80,19 @@ module main_ram(
     end
 
 `else
-
+`ifdef XARK_OSS
+    SB_SPRAM256KA blk0(
+        .CLOCK(clk),
+        .ADDRESS(bus_addr[13:0]),
+        .DATAIN(bus_wrdata[15:0]),
+        .DATAOUT(blk10_rddata[15:0]),
+        .MASKWREN({{2{bus_wrbytesel[1]}}, {2{bus_wrbytesel[0]}}}),
+        .WREN(bus_write && blk10_cs),
+        .CHIPSELECT(1'b1),
+        .STANDBY(1'b0),
+        .SLEEP(1'b0),
+        .POWEROFF(1'b1));
+`else
     SP256K blk0(
         .CK(clk),
         .AD(bus_addr[13:0]),
@@ -92,7 +104,21 @@ module main_ram(
         .STDBY(1'b0),
         .SLEEP(1'b0),
         .PWROFF_N(1'b1));
+`endif
 
+`ifdef XARK_OSS
+    SB_SPRAM256KA blk1(
+        .CLOCK(clk),
+        .ADDRESS(bus_addr[13:0]),
+        .DATAIN(bus_wrdata[31:16]),
+        .DATAOUT(blk10_rddata[31:16]),
+        .MASKWREN({{2{bus_wrbytesel[3]}}, {2{bus_wrbytesel[2]}}}),
+        .WREN(bus_write && blk10_cs),
+        .CHIPSELECT(1'b1),
+        .STANDBY(1'b0),
+        .SLEEP(1'b0),
+        .POWEROFF(1'b1));
+`else
     SP256K blk1(
         .CK(clk),
         .AD(bus_addr[13:0]),
@@ -104,7 +130,21 @@ module main_ram(
         .STDBY(1'b0),
         .SLEEP(1'b0),
         .PWROFF_N(1'b1));
+`endif
 
+`ifdef XARK_OSS
+    SB_SPRAM256KA blk2(
+        .CLOCK(clk),
+        .ADDRESS(bus_addr[13:0]),
+        .DATAIN(bus_wrdata[15:0]),
+        .DATAOUT(blk32_rddata[15:0]),
+        .MASKWREN({{2{bus_wrbytesel[1]}}, {2{bus_wrbytesel[0]}}}),
+        .WREN(bus_write && blk32_cs),
+        .CHIPSELECT(1'b1),
+        .STANDBY(1'b0),
+        .SLEEP(1'b0),
+        .POWEROFF(1'b1));
+`else
     SP256K blk2(
         .CK(clk),
         .AD(bus_addr[13:0]),
@@ -116,7 +156,21 @@ module main_ram(
         .STDBY(1'b0),
         .SLEEP(1'b0),
         .PWROFF_N(1'b1));
+`endif
 
+`ifdef XARK_OSS
+    SB_SPRAM256KA blk3(
+        .CLOCK(clk),
+        .ADDRESS(bus_addr[13:0]),
+        .DATAIN(bus_wrdata[31:16]),
+        .DATAOUT(blk32_rddata[31:16]),
+        .MASKWREN({{2{bus_wrbytesel[3]}}, {2{bus_wrbytesel[2]}}}),
+        .WREN(bus_write && blk32_cs),
+        .CHIPSELECT(1'b1),
+        .STANDBY(1'b0),
+        .SLEEP(1'b0),
+        .POWEROFF(1'b1));
+`else
     SP256K blk3(
         .CK(clk),
         .AD(bus_addr[13:0]),
@@ -128,6 +182,7 @@ module main_ram(
         .STDBY(1'b0),
         .SLEEP(1'b0),
         .PWROFF_N(1'b1));
+`endif
 `endif
 
 endmodule

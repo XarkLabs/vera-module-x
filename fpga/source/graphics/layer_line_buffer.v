@@ -15,6 +15,7 @@ module layer_line_buffer(
     input  wire  [9:0] composer_rd_idx,
     output reg   [7:0] composer_rd_data);
 
+    wire unused_bits = &{1'b0, rst};
     wire active_composer_buffer = !active_render_buffer;
 
     // linebuf_a and linebuf_b are used for the lower 512 pixels of the two lines

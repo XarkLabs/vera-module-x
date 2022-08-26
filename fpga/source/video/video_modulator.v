@@ -89,4 +89,6 @@ module video_modulator(
         chroma <= chroma_s[13:8] + 6'd32;
     end
 
+    wire unused_bits = &{1'b0, i_s[3:0], q_s[3:0], lum[1:0], chroma_s[7:0]};
+
 endmodule

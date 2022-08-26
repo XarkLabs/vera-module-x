@@ -1,6 +1,7 @@
 //`default_nettype none
 
 module top(
+`ifndef XARK_OSS
     input  wire       clk25,
 
     // External bus interface
@@ -27,7 +28,137 @@ module top(
     // Audio output
     output wire       audio_lrck,
     output wire       audio_bck,
-    output wire       audio_data);
+    output wire       audio_data
+`else
+
+//                         UPduino v3.0 pinout for Xosera
+//
+//             [Xosera]       PCF  Pin#  _____  Pin#  PCF       [Xosera]
+//                                ------| USB |------
+//                          <GND> |  1   \___/   48 | spi_ssn   (16)
+//                          <VIO> |  2           47 | spi_sck   (15)
+//        [BUS_RESET_N]     <RST> |  3           46 | spi_mosi  (17)
+//                         <DONE> |  4           45 | spi_miso  (14)
+//           [BUS_CS_N]   led_red |  5           44 | gpio_20   <N/A w/OSC>
+//         [BUS_RD_NWR] led_green |  6     U     43 | gpio_10   <INTERRUPT>
+//        [BUS_BYTESEL]  led_blue |  7     P     42 | <GND>     <silkscreen errata>
+//                          <+5V> |  8     D     41 | <12 MHz>  <silkscreen errata>
+//                        <+3.3V> |  9     U     40 | gpio_12   [VGA_HS]
+//                          <GND> | 10     I     39 | gpio_21   [VGA_VS]
+//       [BUS_REG_NUM0]   gpio_23 | 11     N     38 | gpio_13   [VGA_R3]
+//       [BUS_REG_NUM1]   gpio_25 | 12     O     37 | gpio_19   [VGA_G3]
+//       [BUS_REG_NUM2]   gpio_26 | 13           36 | gpio_18   [VGA_B3]
+//       [BUS_REG_NUM3]   gpio_27 | 14     V     35 | gpio_11   [VGA_R2]
+//            [AUDIO_L]   gpio_32 | 15     3     34 | gpio_9    [VGA_G2]
+// <out-only> [AUDIO_R]   gpio_35 | 16     .     33 | gpio_6    [VGA_B2]
+//          [BUS_DATA0]   gpio_31 | 17     0     32 | gpio_44   [VGA_R1]
+//          [BUS_DATA1]   gpio_37 | 18           31 | gpio_4    [VGA_G1]
+//          [BUS_DATA2]   gpio_34 | 19           30 | gpio_3    [VGA_B1]
+//          [BUS_DATA3]   gpio_43 | 20           29 | gpio_48   [VGA_R0]
+//          [BUS_DATA4]   gpio_36 | 21           28 | gpio_45   [VGA_G0]
+//          [BUS_DATA5]   gpio_42 | 22           27 | gpio_47   [VGA_B0]
+//          [BUS_DATA6]   gpio_38 | 23           26 | gpio_46   [DV_DE]
+//          [BUS_DATA7]   gpio_28 | 24           25 | gpio_2    [DV_CLK]
+//                                -------------------
+// NOTE: Xosera assumes 12MHz OSC jumper is shorted, and R28 RGB LED jumper is cut (using RGB for input)
+
+    input  wire       gpio_20,  //  clk25,
+
+    // External bus interface
+    input  wire       led_red,  //extbus_cs_n,   /* Chip select */
+//    input  wire       extbus_rd_n,   /* Read strobe */
+    input  wire       led_green,    //extbus_wr_n,   /* Write strobe */
+//    input  wire [4:0] extbus_a,      /* Address */
+    input  wire       gpio_27, gpio_26, gpio_25, gpio_23, led_blue,     /* Address */
+//    inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
+    inout wire        gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31,
+    output wire       gpio_10,      //extbus_irq_n,  /* IRQ */
+
+    // VGA interface
+    output wire   gpio_12,        // video vga_hsync
+    output wire   gpio_21,        // video vga_vsync
+    output reg    gpio_13,        // video vga_r[3]
+    output reg    gpio_19,        // video vga_g[3]
+    output reg    gpio_18,        // video vga_b[3]
+    output reg    gpio_11,        // video vga_r[2]
+    output reg    gpio_9,         // video vga_g[2]
+    output reg    gpio_6,         // video vga_b[2]
+    output reg    gpio_44,        // video vga_r[1]
+    output reg    gpio_4,         // video vga_g[1]
+    output reg    gpio_3,         // video vga_b[1]
+    output reg    gpio_48,        // video vga_r[0]
+    output reg    gpio_45,        // video vga_g[0]
+    output reg    gpio_47         // video vga_b[0]
+`endif
+    );
+
+`ifdef XARK_OSS
+    // External bus interface for Xosera/UPduino
+    wire        extbus_cs_n;   /* Chip select */
+    assign      extbus_cs_n = ~(led_red == 1'b0);
+    wire        extbus_rd_n;   /* Read strobe */
+    assign      extbus_rd_n = ~(led_red == 1'b0 && led_green == 1'b1);
+    wire        extbus_wr_n;   /* Write strobe */
+    assign      extbus_wr_n = ~(led_red == 1'b0 && led_green == 1'b0);
+    wire [4:0]  extbus_a;      /* Address */
+    assign      extbus_a = {gpio_27, gpio_26, gpio_25, gpio_23, led_blue};
+    wire [7:0]  extbus_d;      /* Data (bi-directional) */
+    assign      extbus_d = {gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31};
+    wire        extbus_irq_n;  /* IRQ */
+    assign      gpio_10 = extbus_irq_n;
+
+    // VGA interface
+    reg  [3:0]  vga_r;
+    assign      {gpio_13, gpio_11, gpio_44, gpio_48} = vga_r;
+    reg  [3:0]  vga_g;
+    assign      {gpio_19, gpio_9, gpio_4, gpio_45} = vga_g;
+    reg  [3:0]  vga_b;
+    assign      {gpio_18, gpio_6, gpio_3, gpio_47} = vga_b;
+    reg         vga_hsync;
+    assign      gpio_12 = vga_hsync;
+    reg         vga_vsync;
+    assign      gpio_21 = vga_vsync;
+
+    // SPI interface
+    reg       spi_sck;
+    reg       spi_mosi;
+    reg       spi_miso = 1'b0;
+    wire      spi_ssel_n_sd;
+
+    // Audio output
+    reg       audio_lrck;
+    reg       audio_bck;
+    reg       audio_data;
+
+    logic   unused_sigs = &{1'b0, spi_sck, spi_mosi, spi_miso, spi_ssel_n_sd, audio_lrck, audio_bck, audio_data};
+
+    logic       clk25;
+    logic       pll_lock;
+
+    localparam PLL_DIVR    =    4'b0000;        // DIVR =  0
+    localparam PLL_DIVF    =    7'b1000010;     // DIVF = 66
+    localparam PLL_DIVQ    =    3'b101;         // DIVQ =  5
+
+    /* verilator lint_off PINMISSING */
+    SB_PLL40_CORE #(
+        .DIVR(PLL_DIVR),        // DIVR from video mode
+        .DIVF(PLL_DIVF),        // DIVF from video mode
+        .DIVQ(PLL_DIVQ),        // DIVQ from video mode
+        .FEEDBACK_PATH("SIMPLE"),
+        .FILTER_RANGE(3'b001),
+        .PLLOUT_SELECT("GENCLK")
+    ) pll_inst(
+        .LOCK(pll_lock),        // signal indicates PLL lock
+        .RESETB(1'b1),
+        .BYPASS(1'b0),
+        .REFERENCECLK(gpio_20), // input reference clock
+        .PLLOUTGLOBAL(clk25)     // PLL output clock (via global buffer)
+    );
+    /* verilator lint_on PINMISSING */
+
+    wire unused_lock = &{1'b0, pll_lock};
+
+`endif
 
     //////////////////////////////////////////////////////////////////////////
     // Synchronize external asynchronous reset signal to clk25 domain
@@ -265,8 +396,8 @@ module top(
 
     wire [16:0] vram_addr             = (access_addr == 5'h03) ? vram_addr_0_r : vram_addr_1_r;
     wire        vram_addr_decr        = (access_addr == 5'h03) ? vram_addr_decr_0_r : vram_addr_decr_1_r;
-    wire [16:0] vram_addr_incremented = vram_addr + increment;
-    wire [16:0] vram_addr_decremented = vram_addr - increment;
+    wire [16:0] vram_addr_incremented = vram_addr + {7'b0, increment};
+    wire [16:0] vram_addr_decremented = vram_addr - {7'b0, increment};
     wire [16:0] vram_addr_new         = vram_addr_decr ? vram_addr_decremented : vram_addr_incremented;
 
     always @* begin
@@ -960,10 +1091,10 @@ module top(
 
     reg [3:0] sprite_attr_bytesel;
     always @* case (ib_addr_r[1:0])
-        3'd0: sprite_attr_bytesel = 4'b0001;
-        3'd1: sprite_attr_bytesel = 4'b0010;
-        3'd2: sprite_attr_bytesel = 4'b0100;
-        3'd3: sprite_attr_bytesel = 4'b1000;
+        2'd0: sprite_attr_bytesel = 4'b0001;
+        2'd1: sprite_attr_bytesel = 4'b0010;
+        2'd2: sprite_attr_bytesel = 4'b0100;
+        2'd3: sprite_attr_bytesel = 4'b1000;
     endcase
 
     sprite_ram sprite_attr_ram(
@@ -1031,6 +1162,7 @@ module top(
     // Palette
     //////////////////////////////////////////////////////////////////////////
     wire [15:0] palette_rgb_data;
+    wire unused_rgb = &{1'b0, palette_rgb_data[15:12]};
 
     wire        palette_write   = (ib_addr_r[16:9] == 'b11111101) && ib_do_access_r && ib_write_r;
     wire  [1:0] palette_bytesel = ib_addr_r[0] ? 2'b10 : 2'b01;
@@ -1163,10 +1295,17 @@ module top(
     // FPGA reconfiguration
     //////////////////////////////////////////////////////////////////////////
 `ifndef __ICARUS__
+`ifndef XARK_OSS
     WARMBOOT warmboot(
         .S1(1'b0),
         .S0(1'b0),
         .BOOT(fpga_reconfigure_r));
+`else
+    SB_WARMBOOT warmboot(
+        .S1(1'b0),
+        .S0(1'b0),
+        .BOOT(fpga_reconfigure_r));
+`endif
 `endif
 
     //////////////////////////////////////////////////////////////////////////

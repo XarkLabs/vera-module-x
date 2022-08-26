@@ -37,6 +37,7 @@ module composer(
     input  wire        display_current_field,
     output reg   [7:0] display_data);
 
+    wire unused_bits = &{1'b0, sprite_lb_rddata[15:10]};
     // Interlaced modes have double the amount of horizontal clocks
     wire [7:0] frac_x_incr_int = interlaced ? {1'b0, frac_x_incr[7:1]} : frac_x_incr;
 
@@ -78,7 +79,7 @@ module composer(
             next_line_r <= display_next_line;
             if (display_next_line) begin
                 // Interlaced mode skips every other line
-                y_counter_r  <= y_counter_r + (interlaced ? 9'd2 : 9'd1);
+                y_counter_r  <= y_counter_r + (interlaced ? 10'd2 : 10'd1);
 
                 y_counter_rr <= y_counter_r;
             end
@@ -86,7 +87,7 @@ module composer(
                 current_field <= !display_current_field;
 
                 // Interlaced mode starts at either the even or odd line
-                y_counter_r <= (interlaced && !display_current_field) ? 9'd1 : 9'd0;
+                y_counter_r <= (interlaced && !display_current_field) ? 10'd1 : 10'd0;
             end
         end
     end
@@ -98,7 +99,7 @@ module composer(
 
         end else begin
             line_irq <= display_next_line && (
-                (!interlaced && y_counter_r == irqline) ||
+                (!interlaced && y_counter_r == {1'b0, irqline} )  ||
                 ( interlaced && y_counter_r[8:1] == irqline[8:1]));
         end
     end
@@ -126,9 +127,9 @@ module composer(
 
     // Determine the active area of the screen where the border isn't shown
     wire hactive = (x_counter >= active_hstart) && (x_counter < active_hstop);
-    wire vactive = (y_counter >= active_vstart) && (y_counter < active_vstop);
+    wire vactive = (y_counter >= {1'b0, active_vstart}) && (y_counter < {1'b0, active_vstop});
     reg display_active;
-    always @(posedge clk) display_active = hactive && vactive;
+    always @(posedge clk) display_active <= hactive && vactive;
 
     // Scaled vertical counter
     reg vactive_started_r;
@@ -142,7 +143,7 @@ module composer(
             render_start_r <= 0;
 
             if (next_line_r) begin
-                if (!vactive_started_r && next_line_r && y_counter_r >= active_vstart) begin
+                if (!vactive_started_r && next_line_r && y_counter_r >= {1'b0, active_vstart}) begin
                     vactive_started_r  <= 1;
                     render_start_r     <= 1;
 
@@ -171,7 +172,7 @@ module composer(
         end else begin
             if (display_next_pixel && hactive) begin
                 if (scaled_x_counter < 'd640) begin
-                    scaled_x_counter_r <= scaled_x_counter_r + frac_x_incr_int;
+                    scaled_x_counter_r <= scaled_x_counter_r + {9'b0, frac_x_incr_int};
                 end
             end
             

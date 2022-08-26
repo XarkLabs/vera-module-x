@@ -180,9 +180,9 @@ module psg(
     reg signed [15:0] left_accum_r,  right_accum_r;
 
     parameter
-        IDLE     = 3'b00,
-        FETCH_CH = 3'b01,
-        CALC_CH  = 3'b10;
+        IDLE     = 2'b00,
+        FETCH_CH = 2'b01,
+        CALC_CH  = 2'b10;
 
     reg [1:0] state_r;
 
@@ -228,8 +228,8 @@ module psg(
                 end
 
                 CALC_CH: begin
-                    if (cur_left_en)  left_accum_r  <= left_accum_r  + scaled_signal;
-                    if (cur_right_en) right_accum_r <= right_accum_r + scaled_signal;
+                    if (cur_left_en)  left_accum_r  <= left_accum_r  + {{3{scaled_signal[11]}}, scaled_signal};
+                    if (cur_right_en) right_accum_r <= right_accum_r + {{3{scaled_signal[11]}}, scaled_signal};
 
                     working_data_wridx_r <= cur_channel_r;
                     working_data_wren_r  <= 1;
@@ -242,6 +242,9 @@ module psg(
 
                     cur_channel_byte_r <= 0;
                     cur_channel_r <= cur_channel_r + 4'd1;
+                end
+
+                default: begin
                 end
             endcase
         end
