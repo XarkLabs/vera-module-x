@@ -4,13 +4,17 @@
 module tb();
 
     initial begin
+`ifdef XARK_OSS
+        $dumpfile("../logs/tb.fst");
+`else        
         $dumpfile("tb.vcd");
+`endif
         $dumpvars(0, tb);
     end
 
     initial begin
-        // #3000000 $finish;
-        #30000 $finish;
+         #33ms $finish;
+//        #30000 $finish;
     end
 
     // Generate 8MHz phi2
@@ -35,6 +39,7 @@ module tb();
     wire extbus_wr_n = extbus_rw_n || !phi2;
     wire extbus_rd_n = !extbus_rw_n || !phi2;
 
+`ifndef XARK_OSS
     top top(
         .clk25(sysclk),
 
@@ -45,7 +50,44 @@ module tb();
         .extbus_d(extbus_d),
         
         .spi_miso(1'b1));
+`else
+// NOTE: Xosera assumes 12MHz OSC jumper is shorted, and R28 RGB LED jumper is cut (using RGB for input)
 
+    top top(
+        .gpio_20(sysclk),           //  clk25 (but 12 MHz),
+        .led_red(extbus_cs_n),      // extbus_cs_n,   /* Chip select */
+                                    // no extbus_rd_n
+        .led_green(extbus_wr_n),    // extbus_wr_n,   /* Write strobe */
+        .gpio_27(extbus_a[4]),      // extbus_a[4:0],      /* Address */
+        .gpio_26(extbus_a[3]),
+        .gpio_25(extbus_a[2]),
+        .gpio_23(extbus_a[1]),
+        .led_blue(extbus_a[0]),
+        .gpio_38(extbus_d[7]),
+        .gpio_42(extbus_d[6]),
+        .gpio_28(extbus_d[5]),
+        .gpio_36(extbus_d[4]),
+        .gpio_43(extbus_d[3]),
+        .gpio_34(extbus_d[2]),
+        .gpio_37(extbus_d[1]),
+        .gpio_31(extbus_d[0]));
+
+    // // VGA interface
+    // output wire   gpio_12,        // video vga_hsync
+    // output wire   gpio_21,        // video vga_vsync
+    // output reg    gpio_13,        // video vga_r[3]
+    // output reg    gpio_19,        // video vga_g[3]
+    // output reg    gpio_18,        // video vga_b[3]
+    // output reg    gpio_11,        // video vga_r[2]
+    // output reg    gpio_9,         // video vga_g[2]
+    // output reg    gpio_6,         // video vga_b[2]
+    // output reg    gpio_44,        // video vga_r[1]
+    // output reg    gpio_4,         // video vga_g[1]
+    // output reg    gpio_3,         // video vga_b[1]
+    // output reg    gpio_48,        // video vga_r[0]
+    // output reg    gpio_45,        // video vga_g[0]
+    // output reg    gpio_47         // video vga_b[0]
+`endif
 
     task extbus_write;
         input [15:0] addr;
@@ -206,9 +248,6 @@ module tb();
         // for (i=0; i<8; i=i+1) begin
 
         // end
-
-
-
     end
 
 

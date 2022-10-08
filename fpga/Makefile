@@ -20,7 +20,7 @@ OUTDIR := out
 
 # Name of the "top" module for design (in ".v" file with same name)
 TOP := top
-TOP_FILE := source/top
+TOP_FILE := source/top.v
 
 # Default video mode (MODE_640x480, MODE_848x480 or MODE_800x600)
 VIDEO_MODE ?= MODE_640x480
@@ -29,10 +29,13 @@ VIDEO_MODE ?= MODE_640x480
 OUTNAME := verax
 
 # Name of the "top" module for simulation test bed (in ".v" file with same name)
-TBTOP := verax_tb
+TBTOP := tb
+
+# Name of the "top" module for simulation test bed (in ".v" file with same name)
+TBFILE := source/sim/tb.v
 
 # Name of C++ top simulation module (for Verilator)
-VTOP := verax_top
+VTOP := top
 
 # Name of simulation output file
 TBOUTNAME := verax_tb
@@ -54,6 +57,8 @@ SRC := source/reset_sync.v source/main_ram.v source/dpram.v source/graphics/comp
  source/video/video_vga.v source/spi/spictrl.v source/audio/audio.v\
  source/audio/dacif.v source/vram_if.v source/audio/psg.v source/audio/audio_fifo.v source/audio/pcm.v\
  source/palette_ram_oss.v source/sprite_ram_oss.v
+
+ INCDIR := source
 
 # icestorm tools
 # tool binaries assumed in default path (e.g. oss-cad-suite with:
@@ -92,7 +97,7 @@ VERILATOR := verilator
 # e.g. -Wno-UNUSED
 # A nice guide to the warnings, what they mean and how to appese them is https://verilator.org/guide/latest/warnings.html
 # (SystemVerilog files, language versions, include directory and error & warning options)
-VERILATOR_OPTS := -sv --language 1800-2012 --trace-fst -I. -Werror-UNUSED -Wall -Wno-TIMESCALEMOD -Wno-DECLFILENAME
+VERILATOR_OPTS := -sv --language 1800-2012 --trace-fst -I$(INCDIR) -Werror-UNUSED -Wall -Wno-fatal -Wno-TIMESCALEMOD -Wno-DECLFILENAME
 VLT_CONFIG := $(OUTDIR)/ice40_config.vlt
 # Verillator C++ simulation driver
 CSRC := video_vsim.cpp
@@ -102,7 +107,7 @@ IVERILOG := iverilog
 VVP := vvp
 # Icarus Verilog options
 # (language version, include directory, library directory, warning & error options)
-IVERILOG_OPTS := -g2012 -I. -Wall -Wno-portbind -l$(TECH_LIB)
+IVERILOG_OPTS := -g2012 -I$(INCDIR) -Wall -Wno-portbind -Wno-timescale -l$(TECH_LIB)
 
 # nextpnr iCE40 tool
 NEXTPNR := nextpnr-ice40
@@ -142,23 +147,23 @@ prog: $(OUTDIR)/$(OUTNAME).bin
 	$(ICEPROG) -d i:0x0403:0x6014 $(OUTDIR)/$(OUTNAME).bin
 
 # run Yosys with "noflatten", which will produce a resource count per module
-count: $(TOP_FILE).v $(SRC) $(FONTFILES) $(MAKEFILE_LIST)
+count: $(TOP_FILE) $(SRC) $(FONTFILES) $(MAKEFILE_LIST)
 	@echo === Couting Design Resources Used ===
 	@mkdir -p $(LOGS)
-	$(YOSYS) $(YOSYS_OPTS) -l $(LOGS)/$(OUTNAME)_yosys_count.log -q -p 'verilog_defines $(DEFINES) ; read_verilog -I. -sv $(TOP_FILE).v $(SRC) ; synth_ice40 $(YOSYS_SYNTH_OPTS) -noflatten'
+	$(YOSYS) $(YOSYS_OPTS) -l $(LOGS)/$(OUTNAME)_yosys_count.log -q -p 'verilog_defines $(DEFINES) ; read_verilog -I. -sv $(TOP_FILE) $(SRC) ; synth_ice40 $(YOSYS_SYNTH_OPTS) -noflatten'
 	@sed -n '/Printing statistics/,/Executing CHECK pass/p' $(LOGS)/$(OUTNAME)_yosys_count.log | sed '$$d'
 	@echo === See $(LOGS)/$(OUTNAME)_yosys_count.log for resource use details ===
 
 # use Icarus Verilog to build and run simulation executable
-isim: $(OUTDIR)/$(TBOUTNAME) $(TBTOP).v $(SRC) $(MAKEFILE_LIST)
+isim: $(OUTDIR)/$(TBOUTNAME) $(TBFILE) $(SRC) $(MAKEFILE_LIST)
 	@echo === Icarus Verilog files built, use \"make irun\" to run ===
 
 # use Icarus Verilog to run simulation executable
 irun: $(OUTDIR)/$(TBOUTNAME) $(MAKEFILE_LIST)
 	@echo === Running simulation ===
 	@mkdir -p $(LOGS)
-	$(VVP) $(OUTDIR)/$(TBOUTNAME) -fst
-	@echo === Icarus Verilog simulation done, use "gtkwave logs/$(TBTOP).fst" to view waveforms ===
+	cd source && $(VVP) ../$(OUTDIR)/$(TBOUTNAME) -fst
+	@echo === Icarus Verilog simulation done, use "gtkwave logs/tb.fst" to view waveforms ===
 
 # build native simulation executable
 vsim: obj_dir/V$(VTOP) $(MAKEFILE_LIST)
@@ -170,26 +175,26 @@ vrun: obj_dir/V$(VTOP) $(MAKEFILE_LIST)
 	obj_dir/V$(VTOP) $(VRUN_TESTDATA)
 
 # use Icarus Verilog to build vvp simulation executable
-$(OUTDIR)/$(TBOUTNAME): $(VLT_CONFIG) $(TBTOP).v $(SRC) $(MAKEFILE_LIST)
+$(OUTDIR)/$(TBOUTNAME): $(VLT_CONFIG) $(TBFILE) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
 	@echo === Building simulation ===
 	@mkdir -p $(OUTDIR)
 	@rm -f $@
-	$(VERILATOR) $(VERILATOR_OPTS) -Wno-STMTDLY --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(TBTOP) $(VLT_CONFIG) $(TBTOP).v $(SRC)
-	$(IVERILOG) $(IVERILOG_OPTS) $(DEFINES) -o $@ $(TBTOP).v $(SRC)
+	-$(VERILATOR) $(VERILATOR_OPTS) -Wno-STMTDLY --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(VTOP) $(VLT_CONFIG) $(TOP_FILE) $(SRC)
+	$(IVERILOG) $(IVERILOG_OPTS) $(DEFINES) -o $@ $(TBFILE) $(TOP_FILE) $(SRC)
 
 # use Verilator to build native simulation executable
-obj_dir/V$(VTOP): $(CSRC) $(VLT_CONFIG) $(TOP_FILE).v $(SRC) $(MAKEFILE_LIST)
-	$(VERILATOR) $(VERILATOR_OPTS) --cc --exe --trace  $(DEFINES) -DEXT_CLK $(CFLAGS) $(LDFLAGS) -v $(TECH_LIB) --top-module $(VTOP) $(VLT_CONFIG) $(TOP_FILE).v $(SRC) $(CSRC)
+obj_dir/V$(VTOP): $(CSRC) $(VLT_CONFIG) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
+	$(VERILATOR) $(VERILATOR_OPTS) --cc --exe --trace  $(DEFINES) -DEXT_CLK $(CFLAGS) $(LDFLAGS) -v $(TECH_LIB) --top-module $(VTOP) $(VLT_CONFIG) $(TOP_FILE) $(SRC) $(CSRC)
 	cd obj_dir && make -f V$(VTOP).mk
 
 # synthesize SystemVerilog and create json description
-$(OUTDIR)/$(OUTNAME).json: $(VLT_CONFIG) $(TOP_FILE).v $(SRC) $(MAKEFILE_LIST)
+$(OUTDIR)/$(OUTNAME).json: $(VLT_CONFIG) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
 	@echo === Synthesizing design ===
 	@rm -f $@
 	@mkdir -p $(OUTDIR)
 	@mkdir -p $(LOGS)
-	$(VERILATOR) $(VERILATOR_OPTS) --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(TOP) $(VLT_CONFIG) $(TOP_FILE).v $(SRC) 2>&1 | tee $(LOGS)/$(OUTNAME)_verilator.log
-	$(YOSYS) $(YOSYS_OPTS) -l $(LOGS)/$(OUTNAME)_yosys.log -q -p 'verilog_defines $(DEFINES) ; read_verilog -I. -sv $(TOP_FILE).v $(SRC) ; synth_ice40 $(YOSYS_SYNTH_OPTS) -json $@'
+	$(VERILATOR) $(VERILATOR_OPTS) --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(TOP) $(VLT_CONFIG) $(TOP_FILE) $(SRC) 2>&1 | tee $(LOGS)/$(OUTNAME)_verilator.log
+	$(YOSYS) $(YOSYS_OPTS) -l $(LOGS)/$(OUTNAME)_yosys.log -q -p 'verilog_defines $(DEFINES) ; read_verilog -I. -sv $(TOP_FILE) $(SRC) ; synth_ice40 $(YOSYS_SYNTH_OPTS) -json $@'
 
 # make BIN bitstream from JSON description and device parameters
 $(OUTDIR)/$(OUTNAME).bin: $(OUTDIR)/$(OUTNAME).json $(PIN_DEF) $(MAKEFILE_LIST)

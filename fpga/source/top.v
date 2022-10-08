@@ -122,7 +122,7 @@ module top(
     // SPI interface
     reg       spi_sck;
     reg       spi_mosi;
-    reg       spi_miso = 1'b0;
+    reg       spi_miso = 1'b1;
     wire      spi_ssel_n_sd;
 
     // Audio output
@@ -134,6 +134,7 @@ module top(
 
     logic       clk25;
     logic       pll_lock;
+`ifdef SYNTHESIS
 
     localparam PLL_DIVR    =    4'b0000;        // DIVR =  0
     localparam PLL_DIVF    =    7'b1000010;     // DIVF = 66
@@ -157,6 +158,10 @@ module top(
     /* verilator lint_on PINMISSING */
 
     wire unused_lock = &{1'b0, pll_lock};
+`else
+    assign clk25    = gpio_20;
+    assign pll_lock = 1'b1;
+`endif
 
 `endif
 
@@ -168,7 +173,11 @@ module top(
 
     wire reset;
     reset_sync reset_sync_clk25(
+    `ifndef XARK_OSS    
         .async_rst_in(!por_cnt_r[7]),
+    `else
+        .async_rst_in(!pll_lock),
+    `endif
         .clk(clk25),
         .reset_out(reset));
 
