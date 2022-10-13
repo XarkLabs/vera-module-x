@@ -50,7 +50,8 @@ const struct flash_info *flash_detect()
     spi_select(1);
     spi_transfer(buf, buf, sizeof(buf));
     spi_select(0);
-    // hexdump(buf, sizeof(buf));
+    printf("flash_detect ID:\n");
+    hexdump(buf, sizeof(buf));
     if (buf[1] == 0xEF && buf[2] == 0x40 && buf[3] == 0x15)
     {
         static struct flash_info i = {.name = "W25Q16JV", .size = 0x200000, .sector_size = 4096, .page_size = 256};

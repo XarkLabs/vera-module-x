@@ -108,7 +108,7 @@ void upload_fpga_image(int index, const char *filepath, bool power_on_reset)
     const struct flash_info *flash_info = flash_detect();
     if (flash_info == NULL)
     {
-        fprintf(stderr, "flash not detected\n");
+        fprintf(stderr, "upload flash not detected\n");
         exit(EXIT_FAILURE);
     }
 
@@ -193,7 +193,7 @@ void flash_write_file(const char *filepath, unsigned start)
     const struct flash_info *flash_info = flash_detect();
     if (flash_info == NULL)
     {
-        fprintf(stderr, "flash not detected\n");
+        fprintf(stderr, "write flash not detected\n");
         exit(EXIT_FAILURE);
     }
 
@@ -242,7 +242,7 @@ void flash_dump(const char *filepath, unsigned start, unsigned size)
     const struct flash_info *flash_info = flash_detect();
     if (flash_info == NULL)
     {
-        fprintf(stderr, "flash not detected\n");
+        fprintf(stderr, "dump flash not detected\n");
         exit(EXIT_FAILURE);
     }
 
