@@ -14,6 +14,12 @@
             printf("FTDI: %s returned %d in %s:%d\n", STR(x), (int32_t)ftdi_status, __FUNCTION__, __LINE__); \
     } while (0)
 
+#if 0
+#define LOG(...) \
+    do           \
+    {            \
+    } while (0)
+#else
 #define LOG(...)                                    \
     do                                              \
     {                                               \
@@ -21,13 +27,15 @@
         printf(__VA_ARGS__);                        \
         printf("\n");                               \
     } while (0)
+#endif
 
 FT_STATUS ftdi_status;
 FT_HANDLE ftdi;
-uint8_t ftdi_orig_latency = 16;
-const uint8_t ftdi_new_latency = 2;
+UCHAR ftdi_orig_latency = 16;
+const UCHAR ftdi_new_latency = 2;
 
-#define BIT_RATE 2400
+#define DATA_BUFFER_SIZE 256
+#define BIT_RATE 4800
 
 //int32_t CBUS_IO;
 //int32_t ABBM_IO;
@@ -76,6 +84,9 @@ const char *pinname(int p)
 
 uint8_t io_spi_ddrout = IO_FPGA_RESET | IO_FPGA_SSEL | IO_SPI_SCK | IO_SPI_MOSI;
 uint8_t io_data_out;
+
+uint8_t io_buffer[DATA_BUFFER_SIZE];
+DWORD io_bytes;
 
 enum iomode
 {
@@ -149,14 +160,16 @@ void closeFTDIDevice(void)
 {
     if (ftdi != 0)
     {
-        FT_CHECK(FT_GetLatencyTimer(ftdi, &ftdi_orig_latency));
-        FT_CHECK(FT_SetBitMode(ftdi, 0x00, FT_BITMODE_ASYNC_BITBANG)); // all input
+        FT_CHECK(FT_SetLatencyTimer(ftdi, ftdi_orig_latency));
+        FT_CHECK(FT_SetBitMode(ftdi, IO_FPGA_SSEL, FT_BITMODE_ASYNC_BITBANG)); // keep SSEL high
+        uint8_t ssel = IO_FPGA_SSEL;
+        FT_CHECK(FT_Write(ftdi, &ssel, 1, &written));
 
         printf("Closing...\n");
         Sleep(1000);
         FT_Close(ftdi);
+        ftdi = 0;
     }
-    ftdi = 0;
 }
 
 int32_t openFTDIDevice(int devicenum, char *serialstr)
@@ -269,13 +282,24 @@ int32_t openFTDIDevice(int devicenum, char *serialstr)
 
 // FTDI
 
-void flushPort()
+void io_flush_data()
 {
+    written = 0;
+    if (io_bytes)
+    {
+        FT_CHECK(FT_Write(ftdi, &io_buffer, io_bytes, &written));
+        if (written != io_bytes)
+        {
+            LOG("short write %u, expected %u", (uint32_t)written, (uint32_t)io_bytes);
+        }
+        memset(io_buffer, 0, sizeof(io_buffer));
+    }
+    io_bytes = 0;
 }
 
 void udelay(int usec)
 {
-    flushPort();
+    io_flush_data();
 
     int ms = usec / 1000;
 
@@ -285,6 +309,15 @@ void udelay(int usec)
     }
 
     Sleep(ms);
+}
+
+void io_write_data(uint8_t data)
+{
+    io_buffer[io_bytes++] = data;
+    if (io_bytes >= DATA_BUFFER_SIZE)
+    {
+        udelay(1);
+    }
 }
 
 void io_set_mode(int pin, enum iomode mode)
@@ -301,23 +334,27 @@ void io_set_mode(int pin, enum iomode mode)
 void io_out(int pin, bool state)
 {
     LOG("io_out(pin=%s, state=%d)", pinname(pin), state);
+
+    if (pin == IO_SPI_SCK)
+    {
+        io_write_data(io_data_out);
+    }
+
     if (state)
         io_data_out |= pin;
     else
         io_data_out &= ~pin;
 
-    FT_CHECK(FT_Write(ftdi, &io_data_out, 1, &written));
-    if (written != 1)
+    if (pin == IO_SPI_SCK)
     {
-        LOG("write %u, expected %u", (uint32_t)written, 1);
+        io_write_data(io_data_out);
     }
-    udelay(1);
 }
 
 bool io_in(int pin)
 {
     LOG("io_in(pin=%s)", pinname(pin));
-    udelay(1);
+    io_flush_data();
     uint8_t data = 0;
     FT_CHECK(FT_GetBitMode(ftdi, &data));
     return (data & pin) ? 1 : 0;
@@ -358,6 +395,15 @@ void usb_deinit(void)
 {
     LOG("usb_deinit(void)");
 
+    io_set_mode(IO_FPGA_SSEL, IOMODE_OUT);
+    io_set_mode(IO_SPI_SCK, IOMODE_OUT);
+    io_set_mode(IO_SPI_MOSI, IOMODE_OUT);
+    io_set_mode(IO_SPI_MISO, IOMODE_IN);
+
+    io_out(IO_FPGA_SSEL, 1);
+    io_out(IO_SPI_SCK, 0);
+    io_out(IO_SPI_MOSI, 0);
+
     // closeFTDIDevice();
 
     spi_active = false;
@@ -376,9 +422,11 @@ static void spi_init(void)
     io_set_mode(IO_SPI_MOSI, IOMODE_OUT);
     io_set_mode(IO_SPI_MISO, IOMODE_IN);
 
-    io_out(IO_FPGA_SSEL, 0);
+    io_out(IO_FPGA_SSEL, 1);
     io_out(IO_SPI_SCK, 0);
     io_out(IO_SPI_MOSI, 0);
+
+    udelay(100);
 
     spi_active = true;
 }
@@ -438,7 +486,7 @@ void spi_select(bool on)
     {
         // printf("FPGA_SSEL: %d\n", on);
         io_out(IO_FPGA_SSEL, !on);
-        udelay(2);
+        udelay(1000);
     }
 }
 
@@ -468,9 +516,10 @@ void spi_xfer_bit_bang(const void *tx_buf, void *rx_buf, size_t length)
 
     while (length--)
     {
-        *buf8 = spi_xfer_bit_bang_byte(*buf8);
-        buf8++;
+        uint8_t b = spi_xfer_bit_bang_byte(*buf8);
+        *buf8++ = b;
     }
+    io_flush_data();
 }
 
 void spi_tx_bit_bang_byte(uint8_t data)
@@ -496,6 +545,7 @@ void spi_tx_bit_bang(const void *tx_buf, size_t length)
     {
         spi_tx_bit_bang_byte(*(tx_buf8++));
     }
+    io_flush_data();
 }
 
 void spi_tx_ff_bit_bang(size_t length)
@@ -508,6 +558,7 @@ void spi_tx_ff_bit_bang(size_t length)
     {
         spi_tx_bit_bang_byte(0xff);
     }
+    io_flush_data();
 }
 
 void spi_transfer(const void *tx_buf, void *rx_buf, size_t length)
