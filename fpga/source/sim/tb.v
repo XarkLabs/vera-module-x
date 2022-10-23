@@ -39,7 +39,7 @@ module tb();
     wire extbus_wr_n = extbus_rw_n || !phi2;
     wire extbus_rd_n = !extbus_rw_n || !phi2;
 
-`ifndef XARK_OSS
+`ifndef XARK_UPDUINO
     top top(
         .clk25(sysclk),
 

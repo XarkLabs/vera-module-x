@@ -92,21 +92,7 @@ module main_ram(
         .STANDBY(1'b0),
         .SLEEP(1'b0),
         .POWEROFF(1'b1));
-`else
-    SP256K blk0(
-        .CK(clk),
-        .AD(bus_addr[13:0]),
-        .DI(bus_wrdata[15:0]),
-        .DO(blk10_rddata[15:0]),
-        .MASKWE({{2{bus_wrbytesel[1]}}, {2{bus_wrbytesel[0]}}}),
-        .WE(bus_write && blk10_cs),
-        .CS(1'b1),
-        .STDBY(1'b0),
-        .SLEEP(1'b0),
-        .PWROFF_N(1'b1));
-`endif
 
-`ifdef XARK_OSS
     SB_SPRAM256KA blk1(
         .CLOCK(clk),
         .ADDRESS(bus_addr[13:0]),
@@ -118,21 +104,7 @@ module main_ram(
         .STANDBY(1'b0),
         .SLEEP(1'b0),
         .POWEROFF(1'b1));
-`else
-    SP256K blk1(
-        .CK(clk),
-        .AD(bus_addr[13:0]),
-        .DI(bus_wrdata[31:16]),
-        .DO(blk10_rddata[31:16]),
-        .MASKWE({{2{bus_wrbytesel[3]}}, {2{bus_wrbytesel[2]}}}),
-        .WE(bus_write && blk10_cs),
-        .CS(1'b1),
-        .STDBY(1'b0),
-        .SLEEP(1'b0),
-        .PWROFF_N(1'b1));
-`endif
 
-`ifdef XARK_OSS
     SB_SPRAM256KA blk2(
         .CLOCK(clk),
         .ADDRESS(bus_addr[13:0]),
@@ -144,21 +116,7 @@ module main_ram(
         .STANDBY(1'b0),
         .SLEEP(1'b0),
         .POWEROFF(1'b1));
-`else
-    SP256K blk2(
-        .CK(clk),
-        .AD(bus_addr[13:0]),
-        .DI(bus_wrdata[15:0]),
-        .DO(blk32_rddata[15:0]),
-        .MASKWE({{2{bus_wrbytesel[1]}}, {2{bus_wrbytesel[0]}}}),
-        .WE(bus_write && blk32_cs),
-        .CS(1'b1),
-        .STDBY(1'b0),
-        .SLEEP(1'b0),
-        .PWROFF_N(1'b1));
-`endif
 
-`ifdef XARK_OSS
     SB_SPRAM256KA blk3(
         .CLOCK(clk),
         .ADDRESS(bus_addr[13:0]),
@@ -171,6 +129,43 @@ module main_ram(
         .SLEEP(1'b0),
         .POWEROFF(1'b1));
 `else
+
+    SP256K blk0(
+        .CK(clk),
+        .AD(bus_addr[13:0]),
+        .DI(bus_wrdata[15:0]),
+        .DO(blk10_rddata[15:0]),
+        .MASKWE({{2{bus_wrbytesel[1]}}, {2{bus_wrbytesel[0]}}}),
+        .WE(bus_write && blk10_cs),
+        .CS(1'b1),
+        .STDBY(1'b0),
+        .SLEEP(1'b0),
+        .PWROFF_N(1'b1));
+
+    SP256K blk1(
+        .CK(clk),
+        .AD(bus_addr[13:0]),
+        .DI(bus_wrdata[31:16]),
+        .DO(blk10_rddata[31:16]),
+        .MASKWE({{2{bus_wrbytesel[3]}}, {2{bus_wrbytesel[2]}}}),
+        .WE(bus_write && blk10_cs),
+        .CS(1'b1),
+        .STDBY(1'b0),
+        .SLEEP(1'b0),
+        .PWROFF_N(1'b1));
+
+    SP256K blk2(
+        .CK(clk),
+        .AD(bus_addr[13:0]),
+        .DI(bus_wrdata[15:0]),
+        .DO(blk32_rddata[15:0]),
+        .MASKWE({{2{bus_wrbytesel[1]}}, {2{bus_wrbytesel[0]}}}),
+        .WE(bus_write && blk32_cs),
+        .CS(1'b1),
+        .STDBY(1'b0),
+        .SLEEP(1'b0),
+        .PWROFF_N(1'b1));
+
     SP256K blk3(
         .CK(clk),
         .AD(bus_addr[13:0]),

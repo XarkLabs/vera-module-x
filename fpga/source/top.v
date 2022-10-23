@@ -1,7 +1,7 @@
 //`default_nettype none
 
 module top(
-`ifndef XARK_OSS
+`ifndef XARK_UPDUINO
     input  wire       clk25,
 
     // External bus interface
@@ -92,7 +92,7 @@ module top(
 `endif
     );
 
-`ifdef XARK_OSS
+`ifdef XARK_UPDUINO
     // External bus interface for Xosera/UPduino
     wire        extbus_cs_n;   /* Chip select */
     assign      extbus_cs_n = ~(led_red == 1'b0);
@@ -134,6 +134,7 @@ module top(
 
     logic       clk25;
     logic       pll_lock;
+
 `ifdef SYNTHESIS
 
     localparam PLL_DIVR    =    4'b0000;        // DIVR =  0
@@ -169,7 +170,7 @@ module top(
     // Synchronize external asynchronous reset signal to clk25 domain
     //////////////////////////////////////////////////////////////////////////
     reg [7:0] por_cnt_r = 0;
-    `ifndef XARK_OSS    
+    `ifndef XARK_UPDUINO    
     always @(posedge clk25) if (!por_cnt_r[7]) por_cnt_r <= por_cnt_r + 8'd1;
     `else
     always @(posedge clk25) if (pll_lock && !por_cnt_r[7]) por_cnt_r <= por_cnt_r + 8'd1;
@@ -729,10 +730,10 @@ module top(
             dc_active_vstart_r            <= 9'd0;
             dc_active_vstop_r             <= 9'd480;
             l0_color_depth_r              <= 2'b11; //0;
-            l0_bitmap_mode_r              <= 1'b1;  //0;
+            l0_bitmap_mode_r              <= 0;
             l0_attr_mode_r                <= 0;
-            l0_tile_height_r              <= 0;
-            l0_tile_width_r               <= 0;
+            l0_tile_height_r              <= 1'b1;  //0;
+            l0_tile_width_r               <= 1'b1;  //0;
             l0_map_height_r               <= 0;
             l0_map_width_r                <= 0;
             l0_map_baseaddr_r             <= 0;

@@ -18,7 +18,7 @@
 #include <SDL.h>                    // for SDL_RENDER
 #include <SDL_image.h>
 
-#define LOGDIR "logs/"
+#define LOGDIR "../logs/"
 
 #define MAX_TRACE_FRAMES 3        // video frames to dump to VCD file (and then screen-shot and exit)
 #define MAX_UPLOADS      8         // maximum number of "payload" uploads
@@ -72,6 +72,8 @@ double sc_time_stamp()
     return main_time;
 }
 
+#ifdef XARK_UPDUINO
+
 #define TOP_clk   top->gpio_20
 #define TOP_cs_n  top->led_red
 #define TOP_rnwr  top->led_green
@@ -81,9 +83,7 @@ double sc_time_stamp()
 #define TOP_green ((top->gpio_19 << 3) | (top->gpio_9 << 2) | (top->gpio_4 << 1) | (top->gpio_45 << 0))
 #define TOP_blue  ((top->gpio_18 << 3) | (top->gpio_6 << 2) | (top->gpio_3 << 1) | (top->gpio_47 << 0))
 
-
 //     input  wire       gpio_20,  //  clk25,
-
 //     // External bus interface
 //     input  wire       led_red,  //extbus_cs_n,   /* Chip select */
 // //    input  wire       extbus_rd_n,   /* Read strobe */
@@ -94,22 +94,18 @@ double sc_time_stamp()
 //     inout wire        gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31,
 //     output wire       gpio_10,      //extbus_irq_n,  /* IRQ */
 
-//     // VGA interface
-//     output wire   gpio_12,        // video vga_hsync
-//     output wire   gpio_21,        // video vga_vsync
-//     output reg    gpio_13,        // video vga_r[3]
-//     output reg    gpio_19,        // video vga_g[3]
-//     output reg    gpio_18,        // video vga_b[3]
-//     output reg    gpio_11,        // video vga_r[2]
-//     output reg    gpio_9,         // video vga_g[2]
-//     output reg    gpio_6,         // video vga_b[2]
-//     output reg    gpio_44,        // video vga_r[1]
-//     output reg    gpio_4,         // video vga_g[1]
-//     output reg    gpio_3,         // video vga_b[1]
-//     output reg    gpio_48,        // video vga_r[0]
-//     output reg    gpio_45,        // video vga_g[0]
-//     output reg    gpio_47         // video vga_b[0]
+#else
 
+#define TOP_clk   top->clk25
+#define TOP_cs_n  top->extbus_cs_n
+#define TOP_rnwr  top->extbus_rd_n
+#define TOP_hsync top->vga_hsync
+#define TOP_vsync top->vga_vsync
+#define TOP_red   top->vga_r
+#define TOP_green top->vga_g
+#define TOP_blue  top->vga_b
+
+#endif
 
 int main(int argc, char ** argv)
 {
@@ -129,7 +125,7 @@ int main(int argc, char ** argv)
 
     double Hz = 1000000.0 / ((TOTAL_WIDTH * TOTAL_HEIGHT) * (1.0 / PIXEL_CLOCK_MHZ));
     log_printf(
-        "\nVERA simulation. Video %d x %d with %f MHz clock, for % 0.03 Hz FPS\n", VISIBLE_WIDTH, VISIBLE_HEIGHT, Hz);
+        "\nVERA simulation. Video %d x %d with %f MHz clock, for % 0.03f Hz FPS\n", VISIBLE_WIDTH, VISIBLE_HEIGHT, PIXEL_CLOCK_MHZ, Hz);
 
     int nextarg = 1;
 

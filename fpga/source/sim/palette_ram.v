@@ -27,7 +27,7 @@ module palette_ram(
     end
 
     initial begin: INIT
-        $readmemh("../../palette_ram.mem", mem, 0);
+        $readmemh("palette_ram.mem", mem, 0);
     end
 
 endmodule

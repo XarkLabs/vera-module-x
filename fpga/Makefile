@@ -95,8 +95,12 @@ ifeq ($(strip $(SDL_RENDER)),1)
 LDFLAGS := -LDFLAGS "$(shell sdl2-config --libs) -lSDL2_image"
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 endif
+# SystemVerilog preprocessor definitions common to all modules (this prevents spurious warnings in TECH_LIB files)
+#DEFINES := -DXARK_OSS -DXARK_UPDUINO -DNO_ICE40_DEFAULT_ASSIGNMENTS
+DEFINES := -DXARK_OSS -DNO_ICE40_DEFAULT_ASSIGNMENTS
+
 # Note: Using -Os seems to provide the fastest compile+run simulation iteration time
-CFLAGS		:= -CFLAGS "-std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS)"
+CFLAGS		:= -CFLAGS "-Os -std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
 
 # Verilator tool
 VERILATOR := verilator
@@ -106,7 +110,7 @@ VERILATOR := verilator
 # e.g. -Wno-UNUSED
 # A nice guide to the warnings, what they mean and how to appese them is https://verilator.org/guide/latest/warnings.html
 # (SystemVerilog files, language versions, include directory and error & warning options)
-VERILATOR_OPTS := -sv --language 1800-2012 --trace-fst -v $(TECH_LIB) $(VLT_CONFIG) -Mdir source/sim/obj_dir -I$(INCDIR) -Wall -Wno-fatal -Wno-UNUSED -Wno-TIMESCALEMOD -Wno-DECLFILENAME
+VERILATOR_OPTS := -sv --language 1800-2012 --trace-fst -v $(TECH_LIB) $(VLT_CONFIG) -Mdir source/sim/obj_dir $(DEFINES) -I$(INCDIR) -Wall -Wno-fatal -Wno-UNUSED -Wno-TIMESCALEMOD -Wno-DECLFILENAME
 VLT_CONFIG := $(OUTDIR)/ice40_config.vlt
 
 # Verilator C++ simulation driver
@@ -127,11 +131,6 @@ NEXTPNR_OPTS := --promote-logic --opt-timing --placer heap --timing-allow-fail
 
 # log output directory for tools (spammy, but useful detailed info)
 LOGS := logs
-
-# SystemVerilog preprocessor definitions common to all modules (this prevents spurious warnings in TECH_LIB files)
-DEFINES := -DXARK_OSS -DNO_ICE40_DEFAULT_ASSIGNMENTS
-# pass video mode as define
-DEFINES += -D$(VIDEO_MODE)
 
 # get full path to current dir
 current_dir = $(shell pwd)
@@ -185,7 +184,7 @@ vsim: $(VLT_CONFIG) source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
 # run Verilator to build and run native simulation executable
 vrun: source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
 	@mkdir -p $(LOGS)
-	source/sim/obj_dir/V$(VTOP) $(VRUN_TESTDATA)
+	cd source && sim/obj_dir/V$(VTOP) $(VRUN_TESTDATA)
 
 # use Icarus Verilog to build vvp simulation executable
 $(OUTDIR)/$(TBOUTNAME): $(VLT_CONFIG) $(TBFILE) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
