@@ -169,15 +169,15 @@ module top(
     // Synchronize external asynchronous reset signal to clk25 domain
     //////////////////////////////////////////////////////////////////////////
     reg [7:0] por_cnt_r = 0;
+    `ifndef XARK_OSS    
     always @(posedge clk25) if (!por_cnt_r[7]) por_cnt_r <= por_cnt_r + 8'd1;
+    `else
+    always @(posedge clk25) if (pll_lock && !por_cnt_r[7]) por_cnt_r <= por_cnt_r + 8'd1;
+    `endif
 
     wire reset;
     reset_sync reset_sync_clk25(
-    `ifndef XARK_OSS    
         .async_rst_in(!por_cnt_r[7]),
-    `else
-        .async_rst_in(!pll_lock),
-    `endif
         .clk(clk25),
         .reset_out(reset));
 
