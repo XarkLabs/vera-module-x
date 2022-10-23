@@ -45,7 +45,7 @@ module sprite_renderer(
     wire       render_time_done = (render_time_r == 'd798);
 
     // Limit render time so that VGA and composite mode get the same amount of render time
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             render_time_r <= 0;
         end else begin
@@ -184,7 +184,7 @@ module sprite_renderer(
         end
     end
 
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             sprite_idx_r            <= 0;
             sf_state_r              <= SF_FIND_SPRITE;
@@ -411,7 +411,7 @@ module sprite_renderer(
         end
     end
 
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             state_r                <= STATE_IDLE;
             bus_addr_r             <= 0;

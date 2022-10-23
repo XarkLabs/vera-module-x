@@ -89,6 +89,15 @@ YOSYS_SYNTH_OPTS := -device u -dsp -abc2 -top $(TOP)
 # Invokes yosys-config to find the proper path to the iCE40 simulation library
 TECH_LIB := $(shell $(YOSYS_CONFIG) --datdir/ice40/cells_sim.v)
 
+# Verilator C++ definitions and options
+SDL_RENDER := 1
+ifeq ($(strip $(SDL_RENDER)),1)
+LDFLAGS := -LDFLAGS "$(shell sdl2-config --libs) -lSDL2_image"
+SDL_CFLAGS := $(shell sdl2-config --cflags)
+endif
+# Note: Using -Os seems to provide the fastest compile+run simulation iteration time
+CFLAGS		:= -CFLAGS "-std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS)"
+
 # Verilator tool
 VERILATOR := verilator
 # Verilator options (used for "lint" for much more friendly error messages - and also strict warnings)
@@ -97,10 +106,11 @@ VERILATOR := verilator
 # e.g. -Wno-UNUSED
 # A nice guide to the warnings, what they mean and how to appese them is https://verilator.org/guide/latest/warnings.html
 # (SystemVerilog files, language versions, include directory and error & warning options)
-VERILATOR_OPTS := -sv --language 1800-2012 --trace-fst -I$(INCDIR) -Werror-UNUSED -Wall -Wno-fatal -Wno-TIMESCALEMOD -Wno-DECLFILENAME
+VERILATOR_OPTS := -sv --language 1800-2012 --trace-fst -v $(TECH_LIB) $(VLT_CONFIG) -Mdir source/sim/obj_dir -I$(INCDIR) -Wall -Wno-fatal -Wno-UNUSED -Wno-TIMESCALEMOD -Wno-DECLFILENAME
 VLT_CONFIG := $(OUTDIR)/ice40_config.vlt
-# Verillator C++ simulation driver
-CSRC := video_vsim.cpp
+
+# Verilator C++ simulation driver
+CSRC := source/sim/vera_vsim.cpp
 
 # Icarus Verilog tool
 IVERILOG := iverilog
@@ -122,6 +132,9 @@ LOGS := logs
 DEFINES := -DXARK_OSS -DNO_ICE40_DEFAULT_ASSIGNMENTS
 # pass video mode as define
 DEFINES += -D$(VIDEO_MODE)
+
+# get full path to current dir
+current_dir = $(shell pwd)
 
 # show info on make targets
 info:
@@ -166,26 +179,26 @@ irun: $(OUTDIR)/$(TBOUTNAME) $(MAKEFILE_LIST)
 	@echo === Icarus Verilog simulation done, use "gtkwave logs/tb.fst" to view waveforms ===
 
 # build native simulation executable
-vsim: obj_dir/V$(VTOP) $(MAKEFILE_LIST)
+vsim: $(VLT_CONFIG) source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
 	@echo === Completed building Verilator simulation, use \"make vrun\" to run.
 
 # run Verilator to build and run native simulation executable
-vrun: obj_dir/V$(VTOP) $(MAKEFILE_LIST)
+vrun: source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
 	@mkdir -p $(LOGS)
-	obj_dir/V$(VTOP) $(VRUN_TESTDATA)
+	source/sim/obj_dir/V$(VTOP) $(VRUN_TESTDATA)
 
 # use Icarus Verilog to build vvp simulation executable
 $(OUTDIR)/$(TBOUTNAME): $(VLT_CONFIG) $(TBFILE) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
 	@echo === Building simulation ===
 	@mkdir -p $(OUTDIR)
 	@rm -f $@
-	-$(VERILATOR) $(VERILATOR_OPTS) -Wno-STMTDLY --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(VTOP) $(VLT_CONFIG) $(TOP_FILE) $(SRC)
+	-$(VERILATOR) $(VERILATOR_OPTS) -Wno-STMTDLY --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(VTOP) $(TOP_FILE) $(SRC)
 	$(IVERILOG) $(IVERILOG_OPTS) $(DEFINES) -o $@ $(TBFILE) $(TOP_FILE) $(SRC)
 
 # use Verilator to build native simulation executable
-obj_dir/V$(VTOP): $(CSRC) $(VLT_CONFIG) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
-	$(VERILATOR) $(VERILATOR_OPTS) --cc --exe --trace  $(DEFINES) -DEXT_CLK $(CFLAGS) $(LDFLAGS) -v $(TECH_LIB) --top-module $(VTOP) $(VLT_CONFIG) $(TOP_FILE) $(SRC) $(CSRC)
-	cd obj_dir && make -f V$(VTOP).mk
+source/sim/obj_dir/V$(VTOP): $(VLT_CONFIG) $(CSRC) $(INC) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
+	$(VERILATOR) $(VERILATOR_OPTS) --cc --exe --trace $(DEFINES) $(CFLAGS) $(LDFLAGS) --top-module $(VTOP) $(TOP_FILE) $(SRC) $(current_dir)/$(CSRC)
+	cd source/sim/obj_dir && make -f V$(VTOP).mk
 
 # synthesize SystemVerilog and create json description
 $(OUTDIR)/$(OUTNAME).json: $(VLT_CONFIG) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
@@ -193,7 +206,7 @@ $(OUTDIR)/$(OUTNAME).json: $(VLT_CONFIG) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)
 	@rm -f $@
 	@mkdir -p $(OUTDIR)
 	@mkdir -p $(LOGS)
-	$(VERILATOR) $(VERILATOR_OPTS) --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(TOP) $(VLT_CONFIG) $(TOP_FILE) $(SRC) 2>&1 | tee $(LOGS)/$(OUTNAME)_verilator.log
+	$(VERILATOR) $(VERILATOR_OPTS) --lint-only $(DEFINES) -v $(TECH_LIB) --top-module $(TOP) $(TOP_FILE) $(SRC) 2>&1 | tee $(LOGS)/$(OUTNAME)_verilator.log
 	$(YOSYS) $(YOSYS_OPTS) -l $(LOGS)/$(OUTNAME)_yosys.log -q -p 'verilog_defines $(DEFINES) ; read_verilog -I. -sv $(TOP_FILE) $(SRC) ; synth_ice40 $(YOSYS_SYNTH_OPTS) -json $@'
 
 # make BIN bitstream from JSON description and device parameters
@@ -214,15 +227,17 @@ $(OUTDIR)/$(OUTNAME).bin: $(OUTDIR)/$(OUTNAME).json $(PIN_DEF) $(MAKEFILE_LIST)
 
 # disable UNUSED and UNDRIVEN warnings in cells_sim.v library for Verilator lint
 $(VLT_CONFIG):
+	@echo === Creating Verilator warning exceptions file ===
 	@mkdir -p $(OUTDIR)
 	@echo >$(VLT_CONFIG)
 	@echo >>$(VLT_CONFIG) \`verilator_config
+	@echo >>$(VLT_CONFIG) lint_off -rule WIDTH  -file \"$(TECH_LIB)\"
 	@echo >>$(VLT_CONFIG) lint_off -rule UNUSED  -file \"$(TECH_LIB)\"
 	@echo >>$(VLT_CONFIG) lint_off -rule UNDRIVEN  -file \"$(TECH_LIB)\"
 
 # delete all targets that will be re-generated
 clean:
-	rm -f $(VLT_CONFIG) $(OUTDIR)/$(OUTNAME).bin $(OUTDIR)/$(OUTNAME).json $(OUTDIR)/$(OUTNAME).asc $(OUTDIR)/$(TBOUTNAME) $(wildcard obj_dir/*)
+	rm -f $(VLT_CONFIG) $(OUTDIR)/$(OUTNAME).bin $(OUTDIR)/$(OUTNAME).json $(OUTDIR)/$(OUTNAME).asc $(OUTDIR)/$(TBOUTNAME) $(wildcard source/sim/obj_dir/*)
 
 # prevent make from deleting any intermediate files
 .SECONDARY:

@@ -27,22 +27,7 @@ module palette_ram(
     end
 
     initial begin: INIT
-        mem[0] = 16'h000;
-        mem[1] = 16'hFFF;
-        mem[2] = 16'h800;
-        mem[3] = 16'hAFE;
-        mem[4] = 16'hC4C;
-        mem[5] = 16'h0C5;
-        mem[6] = 16'h00A;
-        mem[7] = 16'hEE7;
-        mem[8] = 16'hD85;
-        mem[9] = 16'h640;
-        mem[10] = 16'hF77;
-        mem[11] = 16'h333;
-        mem[12] = 16'h777;
-        mem[13] = 16'hAF6;
-        mem[14] = 16'h08F;
-        mem[15] = 16'hBBB;
+        $readmemh("../../palette_ram.mem", mem, 0);
     end
 
 endmodule

@@ -696,7 +696,7 @@ module top(
         end
     end
 
-    always @(posedge clk or posedge reset) begin
+    always @(posedge clk /* or posedge reset */) begin
         if (reset) begin
             vram_addr_0_r                 <= 0;
             vram_addr_1_r                 <= 0;
@@ -718,7 +718,7 @@ module top(
             irq_status_sprite_collision_r <= 0;
             irq_line_r                    <= 0;
             sprites_enabled_r             <= 0;
-            l0_enabled_r                  <= 0;
+            l0_enabled_r                  <= 1'b1;  //0;
             l1_enabled_r                  <= 0;
             chroma_disable_r              <= 0;
             dc_hscale_r                   <= 8'd128;
@@ -728,8 +728,8 @@ module top(
             dc_active_hstop_r             <= 10'd640;
             dc_active_vstart_r            <= 9'd0;
             dc_active_vstop_r             <= 9'd480;
-            l0_color_depth_r              <= 0;
-            l0_bitmap_mode_r              <= 0;
+            l0_color_depth_r              <= 2'b11; //0;
+            l0_bitmap_mode_r              <= 1'b1;  //0;
             l0_attr_mode_r                <= 0;
             l0_tile_height_r              <= 0;
             l0_tile_width_r               <= 0;
@@ -750,7 +750,7 @@ module top(
             l1_tile_baseaddr_r            <= 0;
             l1_hscroll_r                  <= 0;
             l1_vscroll_r                  <= 0;
-            video_output_mode_r           <= 0;
+            video_output_mode_r           <= 2'b01; //0;
             audio_pcm_sample_rate_r       <= 0;
             audio_mode_stereo_r           <= 0;
             audio_mode_16bit_r            <= 0;
@@ -912,7 +912,7 @@ module top(
     wire        line_render_start;
 
     reg active_line_buf_r;
-    always @(posedge clk or posedge reset) begin
+    always @(posedge clk /* or posedge reset */) begin
         if (reset) begin
             active_line_buf_r <= 0;
         end else begin

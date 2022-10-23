@@ -69,7 +69,7 @@ module composer(
     reg  [9:0] y_counter_r, y_counter_rr;
     reg  next_line_r;
 
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             y_counter_r   <= 0;
             y_counter_rr  <= 0;
@@ -93,7 +93,7 @@ module composer(
     end
 
     // Generate line irq
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             line_irq <= 0;
 
@@ -106,7 +106,7 @@ module composer(
 
     // Regular horizontal counter
     reg [10:0] x_counter_r;
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             x_counter_r <= 0;
         end else begin
@@ -133,7 +133,7 @@ module composer(
 
     // Scaled vertical counter
     reg vactive_started_r;
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             scaled_y_counter_r <= 'd0;
             render_start_r     <= 0;
@@ -165,7 +165,7 @@ module composer(
     end
 
     // Scaled horizontal counter
-    always @(posedge clk or posedge rst) begin
+    always @(posedge clk /* or posedge rst */) begin
         if (rst) begin
             scaled_x_counter_r <= 'd0;
 
