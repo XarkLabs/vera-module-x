@@ -116,7 +116,7 @@ module psg(
     //////////////////////////////////////////////////////////////////////////
     reg [15:0] lfsr_r;
     reg [5:0] noise_value_r;
-    always @(posedge clk /* or posedge rst */) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) begin
             lfsr_r        <= 16'd1;
             noise_value_r <= 6'd0;
@@ -186,7 +186,7 @@ module psg(
 
     reg [1:0] state_r;
 
-    always @(posedge clk /* or posedge rst */) begin
+    always @(posedge clk or posedge rst) begin
         if (rst) begin
             cur_channel_r  <= 0;
             left_sample_r  <= 0;

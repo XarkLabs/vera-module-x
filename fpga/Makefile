@@ -84,7 +84,7 @@ YOSYS_OPTS := -e "no driver"
 
 # Yosys synthesis options
 # ("ultraplus" device, enable DSP inferrence, ABC9 logic optimization and explicitly set top module name)
-YOSYS_SYNTH_OPTS := -device u -dsp -abc2 -top $(TOP)
+YOSYS_SYNTH_OPTS := -abc2 -device u -dsp -no-rw-check -top $(TOP)
 
 # Invokes yosys-config to find the proper path to the iCE40 simulation library
 TECH_LIB := $(shell $(YOSYS_CONFIG) --datdir/ice40/cells_sim.v)
@@ -96,15 +96,19 @@ LDFLAGS := -LDFLAGS "$(shell sdl2-config --libs) -lSDL2_image"
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 endif
 # SystemVerilog preprocessor definitions common to all modules (this prevents spurious warnings in TECH_LIB files)
-#DEFINES := -DXARK_OSS -DXARK_UPDUINO -DNO_ICE40_DEFAULT_ASSIGNMENTS
-DEFINES := -DXARK_OSS -DNO_ICE40_DEFAULT_ASSIGNMENTS
+#DEFINES := -DXARK_OSS  -DNO_ICE40_DEFAULT_ASSIGNMENTS
+DEFINES := -DNO_ICE40_DEFAULT_ASSIGNMENTS -DXARK_OSS 
+
+ifneq ($(UPDUINO),)
+DEFINES += -DXARK_UPDUINO
+endif
 
 # Note: Using -Os seems to provide the fastest compile+run simulation iteration time
 CFLAGS		:= -CFLAGS "-Os -std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
 
 # Verilator tool
 VERILATOR := verilator
-# Verilator options (used for "lint" for much more friendly error messages - and also strict warnings)
+# Verilator options (used for "lint" for much more friendly error messages vs Yosys - and also strict warnings)
 # If you are getting "annoyed", you can add -Wno-fatal so warnings aren't fatal, but IMHO better to just fix them. :)
 # Also, a few overly annoying ones are disabled here, but you can also disable other ones to you don't wish to heed
 # e.g. -Wno-UNUSED
@@ -113,7 +117,7 @@ VERILATOR := verilator
 VERILATOR_OPTS := -sv --language 1800-2012 --trace-fst -v $(TECH_LIB) $(VLT_CONFIG) -Mdir source/sim/obj_dir $(DEFINES) -I$(INCDIR) -Wall -Wno-fatal -Wno-UNUSED -Wno-TIMESCALEMOD -Wno-DECLFILENAME
 VLT_CONFIG := $(OUTDIR)/ice40_config.vlt
 
-# Verilator C++ simulation driver
+# Verilator C++ simulation driver (uses SDL2 to render VGA output and save to PNGs)
 CSRC := source/sim/vera_vsim.cpp
 
 # Icarus Verilog tool
@@ -121,7 +125,7 @@ IVERILOG := iverilog
 VVP := vvp
 # Icarus Verilog options
 # (language version, include directory, library directory, warning & error options)
-IVERILOG_OPTS := -g2012 -I$(INCDIR) -Wall -Wno-portbind -Wno-timescale -l$(TECH_LIB)
+IVERILOG_OPTS := -g2012 -Wall -Wno-portbind -Wno-timescale -l$(TECH_LIB) -I$(INCDIR) 
 
 # nextpnr iCE40 tool
 NEXTPNR := nextpnr-ice40
@@ -132,7 +136,7 @@ NEXTPNR_OPTS := --promote-logic --opt-timing --placer heap --timing-allow-fail
 # log output directory for tools (spammy, but useful detailed info)
 LOGS := logs
 
-# get full path to current dir
+# get full path to current top dir
 current_dir = $(shell pwd)
 
 # show info on make targets

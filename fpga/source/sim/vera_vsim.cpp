@@ -107,6 +107,12 @@ double sc_time_stamp()
 
 #endif
 
+#ifdef XARK_UPDUINO
+const char design_name[] = "VERA-UPduino";
+#else
+const char design_name[] = "VERA-X16";
+#endif
+
 int main(int argc, char ** argv)
 {
     struct sigaction sigIntHandler;
@@ -125,7 +131,7 @@ int main(int argc, char ** argv)
 
     double Hz = 1000000.0 / ((TOTAL_WIDTH * TOTAL_HEIGHT) * (1.0 / PIXEL_CLOCK_MHZ));
     log_printf(
-        "\nVERA simulation. Video %d x %d with %f MHz clock, for % 0.03f Hz FPS\n", VISIBLE_WIDTH, VISIBLE_HEIGHT, PIXEL_CLOCK_MHZ, Hz);
+        "\n%s simulation. Video VGA %dx%d@%0.03f Hz (pixel clock %0.03f MHz)\n", design_name, VISIBLE_WIDTH, VISIBLE_HEIGHT, Hz, PIXEL_CLOCK_MHZ);
 
     int nextarg = 1;
 

@@ -169,12 +169,9 @@ module top(
     //////////////////////////////////////////////////////////////////////////
     // Synchronize external asynchronous reset signal to clk25 domain
     //////////////////////////////////////////////////////////////////////////
+
     reg [7:0] por_cnt_r = 0;
-    `ifndef XARK_UPDUINO    
     always @(posedge clk25) if (!por_cnt_r[7]) por_cnt_r <= por_cnt_r + 8'd1;
-    `else
-    always @(posedge clk25) if (pll_lock && !por_cnt_r[7]) por_cnt_r <= por_cnt_r + 8'd1;
-    `endif
 
     wire reset;
     reset_sync reset_sync_clk25(
@@ -697,7 +694,7 @@ module top(
         end
     end
 
-    always @(posedge clk /* or posedge reset */) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             vram_addr_0_r                 <= 0;
             vram_addr_1_r                 <= 0;
@@ -913,7 +910,7 @@ module top(
     wire        line_render_start;
 
     reg active_line_buf_r;
-    always @(posedge clk /* or posedge reset */) begin
+    always @(posedge clk or posedge reset) begin
         if (reset) begin
             active_line_buf_r <= 0;
         end else begin

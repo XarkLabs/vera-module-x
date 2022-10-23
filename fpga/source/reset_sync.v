@@ -7,6 +7,14 @@ module reset_sync(
 
     reg dff_r, dff_rr;
 
+`ifdef XARK_OSS
+    // fix simulation issue where reset undefined so no posedge at start
+    initial begin
+        dff_r = 1'b0;
+        dff_rr = 1'b0;
+    end
+`endif
+
     always @(posedge clk or posedge async_rst_in) begin
         if (async_rst_in) begin
             dff_r <= 1'b1;
