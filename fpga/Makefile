@@ -155,7 +155,7 @@ count: $(TOP_FILE) $(SRC) $(FONTFILES) $(MAKEFILE_LIST)
 	@echo === See $(LOGS)/$(OUTNAME)_yosys_count.log for resource use details ===
 
 # use Icarus Verilog to build and run simulation executable
-isim: $(OUTDIR)/$(TBOUTNAME) $(TBFILE) $(SRC) $(MAKEFILE_LIST)
+isim: $(VLT_CONFIG) $(OUTDIR)/$(TBOUTNAME) $(TBFILE) $(SRC) $(MAKEFILE_LIST)
 	@echo === Icarus Verilog files built, use \"make irun\" to run ===
 
 # use Icarus Verilog to run simulation executable
@@ -214,6 +214,7 @@ $(OUTDIR)/$(OUTNAME).bin: $(OUTDIR)/$(OUTNAME).json $(PIN_DEF) $(MAKEFILE_LIST)
 
 # disable UNUSED and UNDRIVEN warnings in cells_sim.v library for Verilator lint
 $(VLT_CONFIG):
+	@mkdir -p $(OUTDIR)
 	@echo >$(VLT_CONFIG)
 	@echo >>$(VLT_CONFIG) \`verilator_config
 	@echo >>$(VLT_CONFIG) lint_off -rule UNUSED  -file \"$(TECH_LIB)\"
