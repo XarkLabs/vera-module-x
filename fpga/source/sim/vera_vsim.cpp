@@ -18,6 +18,10 @@
 #include <SDL.h>                    // for SDL_RENDER
 #include <SDL_image.h>
 
+#if !defined(NUM_ELEMENTS)
+#define NUM_ELEMENTS(a) (sizeof(a) / sizeof(a[0]))
+#endif
+
 #if !defined(SDL_RENDER)
 #define SDL_RENDER 0
 #endif
@@ -165,6 +169,245 @@ uint8_t get_data(Vtop * top)
 
 #endif
 
+
+enum struct Bus
+{
+    IDLE,
+    SELECT,
+    DESELECT
+};
+
+enum struct Cmd
+{
+    DONE,
+    DELAY,
+    REG_WR,
+    REG_WR_VALUE,
+    REG_WR_FILE,
+    REG_RD,
+    REG_RD_FILE
+};
+
+struct BusCommand
+{
+
+    Cmd     cmd;
+    uint8_t regnum;
+    uint8_t data;
+    char *  name;
+    int     count;
+};
+
+#define DELAY(delay)                                                                                                   \
+    {                                                                                                                  \
+        Cmd::DELAY, 0, 0, nullptr, (delay)                                                                             \
+    }
+
+#define REG_WR(reg, value)                                                                                             \
+    {                                                                                                                  \
+        Cmd::REG_WR, (reg), (value), nullptr, 0                                                                        \
+    }
+
+#define REG_RD(reg)                                                                                                    \
+    {                                                                                                                  \
+        Cmd::REG_RD, (reg), 0, nullptr, 0                                                                              \
+    }
+
+#define REG_WR_VALUE(reg, value, count)                                                                                \
+    {                                                                                                                  \
+        Cmd::REG_WR_VALUE, (reg), (value), 0, (count)                                                                  \
+    }
+
+#define REG_WR_FILE(reg, file, count)                                                                                  \
+    {                                                                                                                  \
+        Cmd::REG_WR_FILE, (reg), 0, (file), (count)                                                                    \
+    }
+
+#define REG_RD_FILE(reg, file, count)                                                                                  \
+    {                                                                                                                  \
+        Cmd::REG_RD_FILE, (reg), 0, (file), (count)                                                                    \
+    }
+
+#define DONE()                                                                                                         \
+    {                                                                                                                  \
+        Cmd::DONE, 0, 0, nullptr, 0                                                                                    \
+    }
+
+BusCommand TestCommands[] = {
+    // clear VRAM
+
+    DELAY(650000),                    // delay cycles
+    REG_WR(VERA_ADDR_L, 0x00),        // addr $hmm00
+    REG_WR(VERA_ADDR_M, 0x00),        // addr $h00ll
+                                      //    REG_WR(VERA_ADDR_H, 0x10),        // addr $0mmll incr +1
+    REG_WR_VALUE(VERA_DATA0, 0x00, 0x200),
+
+    DONE()        // ending command
+};
+
+const float  BusSpeed       = 8.0 / PIXEL_CLOCK_MHZ;
+float        BusFraction    = 0.0;
+uint64_t     BusCycle       = 0;
+Bus          BusState       = Bus::IDLE;
+BusCommand * BusCmdPtr      = TestCommands;
+uint32_t     BusNumCmds     = NUM_ELEMENTS(TestCommands);
+uint32_t     BusCmdIndex    = 0;
+uint32_t     BusRepeatCount = 0;
+BusCommand   BusCurCmd;
+
+void process_bus(Vtop * top)
+{
+    if (BusState == Bus::SELECT)
+    {
+        set_data(top, BusCurCmd.data);
+    }
+
+    BusFraction += BusSpeed;
+
+    if (BusFraction >= 1.0)
+    {
+        BusFraction -= 1.0;
+
+        bool rd_n = (BusCurCmd.cmd == Cmd::REG_RD || BusCurCmd.cmd == Cmd::REG_RD_FILE) ? 0 : 1;
+        bool wr_n =
+            (BusCurCmd.cmd == Cmd::REG_WR || BusCurCmd.cmd == Cmd::REG_WR_VALUE || BusCurCmd.cmd == Cmd::REG_WR_FILE)
+                ? 0
+                : 1;
+
+        switch (BusState)
+        {
+            case Bus::SELECT: {
+                logonly_printf("[%8lu/%8lu] BUS: CS_n=%d, RD_n=%d, WR_n=%d REG_ADR=0x%02x <= 0x%02x%s\n",
+                               main_time / 2,
+                               BusCycle,
+                               0,
+                               rd_n,
+                               wr_n,
+                               BusCurCmd.regnum,
+                               wr_n ? 0xff : BusCurCmd.data,
+                               wr_n ? "" : " WRITE");
+                set_bus(top, 0, rd_n, wr_n, BusCurCmd.regnum);
+                set_data(top, BusCurCmd.data);
+                BusState = Bus::DESELECT;
+
+                break;
+            }
+
+            case Bus::DESELECT:
+                logonly_printf("[%8lu/%8lu] BUS: CS_n=%d, RD_n=%d, WR_n=%d REG_ADR=0x%02x => 0x%02x%s\n",
+                               main_time / 2,
+                               BusCycle,
+                               1,
+                               1,
+                               1,
+                               BusCurCmd.regnum,
+                               get_data(top),
+                               rd_n ? "" : " READ");
+                set_bus(top, 1, 1, 1, BusCurCmd.regnum);
+                BusState = Bus::IDLE;
+
+                break;
+
+            case Bus::IDLE:
+
+                set_bus(top, 1, 1, 1, 0x00);
+
+                if (BusRepeatCount >= BusCurCmd.count)
+                {
+                    if (BusCmdPtr != nullptr && BusCmdIndex < BusNumCmds)
+                    {
+                        BusCurCmd      = BusCmdPtr[BusCmdIndex++];
+                        BusRepeatCount = 0;
+                    }
+                    else
+                    {
+                        BusCurCmd.cmd   = Cmd::DONE;
+                        BusCurCmd.count = ~0;
+                    }
+                }
+
+                switch (BusCurCmd.cmd)
+                {
+                    case Cmd::DELAY:
+                        if (!BusRepeatCount)
+                        {
+                            logonly_printf("[%8lu/%8lu] DELAY(%d)\n", main_time / 2, BusCycle, BusCurCmd.count);
+                        }
+                        else if (BusRepeatCount == BusCurCmd.count)
+                        {
+                            logonly_printf("[%8lu/%8lu]  - DELAY elapsed\n", main_time / 2, BusCycle);
+                        }
+                        break;
+                    case Cmd::REG_WR:
+                        BusState = Bus::SELECT;
+                        logonly_printf("[%8lu/%8lu] REG_WR(0x%02x, 0x%02x)\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       BusCurCmd.regnum,
+                                       BusCurCmd.data);
+                        break;
+                    case Cmd::REG_RD:
+                        BusState = Bus::SELECT;
+                        logonly_printf("[%8lu/%8lu] REG_RD(0x%02x)\n", main_time / 2, BusCycle, BusCurCmd.regnum);
+                        break;
+                    case Cmd::REG_WR_VALUE:
+                        BusState = Bus::SELECT;
+                        logonly_printf("[%8lu/%8lu] REG_WR_VALUE(0x%02x, 0x%02x, %d/%d)\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       BusCurCmd.regnum,
+                                       BusCurCmd.data,
+                                       BusRepeatCount,
+                                       BusCurCmd.count);
+                        break;
+                    case Cmd::REG_WR_FILE:
+                        BusState = Bus::SELECT;
+                        logonly_printf("[%8lu/%8lu] REG_WR_FILE(0x%02x, \"%s\", %d/%d)\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       BusCurCmd.regnum,
+                                       BusCurCmd.name,
+                                       BusRepeatCount,
+                                       BusCurCmd.count);
+                        break;
+                    case Cmd::REG_RD_FILE:
+                        BusState = Bus::SELECT;
+                        logonly_printf("[%8lu/%8lu] REG_RD_FILE(0x%02x, \"%s\", %d/%d)\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       BusCurCmd.regnum,
+                                       BusCurCmd.name,
+                                       BusRepeatCount,
+                                       BusCurCmd.count);
+                        break;
+                    case Cmd::DONE:
+                        BusState = Bus::IDLE;
+                        if (BusCmdPtr)
+                        {
+                            logonly_printf("[%8lu/%8lu] DONE\n", main_time / 2, BusCycle);
+                        }
+                        BusCmdPtr   = nullptr;
+                        BusCmdIndex = 0;
+                        BusNumCmds  = 0;
+
+                        break;
+                    default:
+                        log_printf("Bad command %u\n", BusCurCmd.cmd);
+                        assert(false);
+                        break;
+                }
+
+                if (BusRepeatCount < BusCurCmd.count)
+                {
+                    BusRepeatCount += 1;
+                }
+                break;
+        }
+
+        BusCycle++;
+    }
+}
+
 #ifdef XARK_UPDUINO
 const char design_name[] = "VERA-UPduino";
 #else
@@ -286,6 +529,7 @@ int main(int argc, char ** argv)
 
     while (!done && !Verilated::gotFinish())
     {
+        process_bus(top);
 
         TOP_clk = 1;        // clock rising
         top->eval();
@@ -371,7 +615,7 @@ int main(int argc, char ** argv)
                 vluint64_t frame_time = (main_time - frame_start_time) / 2;
                 logonly_printf(
                     "[@t=%8lu] Frame %3d, %lu pixel-clocks (% 0.03f msec real-time), %dx%d hsync %d, vsync %d\n",
-                    main_time,
+                    main_time / 2,
                     frame_num,
                     frame_time,
                     ((1.0 / PIXEL_CLOCK_MHZ) * frame_time) / 1000.0,
@@ -398,7 +642,7 @@ int main(int argc, char ** argv)
                         SDL_FreeSurface(screen_shot);
                         float fnum = ((1.0 / PIXEL_CLOCK_MHZ) * ((main_time - first_frame_start) / 2)) / 1000.0;
                         log_printf("[@t=%8lu] %8.03f ms frame #%3u saved as \"%s\" (%dx%d)\n",
-                                   main_time,
+                                   main_time / 2,
                                    fnum,
                                    frame_num,
                                    save_name,

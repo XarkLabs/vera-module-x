@@ -698,7 +698,7 @@ module top(
         if (reset) begin
             vram_addr_0_r                 <= 0;
             vram_addr_1_r                 <= 0;
-            vram_addr_incr_0_r            <= 0;
+            vram_addr_incr_0_r            <= 4'b0001;   //0;
             vram_addr_incr_1_r            <= 0;
             vram_addr_decr_0_r            <= 0;
             vram_addr_decr_1_r            <= 0;
