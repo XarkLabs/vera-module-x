@@ -159,12 +159,12 @@ void set_bus(Vtop * top, bool cs_n, bool rd_n, bool wr_n, uint8_t addr)
 
 void set_data(Vtop * top, uint8_t v)
 {
-    top->extbus_d = v;
+    top->extbus_d_i = v;
 }
 
 uint8_t get_data(Vtop * top)
 {
-    return top->extbus_d;
+    return top->extbus_d_o;
 }
 
 #endif
@@ -236,11 +236,11 @@ struct BusCommand
 BusCommand TestCommands[] = {
     // clear VRAM
 
-    DELAY(650000),                    // delay cycles
+    DELAY(500),                    // delay cycles
     REG_WR(VERA_ADDR_L, 0x00),        // addr $hmm00
     REG_WR(VERA_ADDR_M, 0x00),        // addr $h00ll
-                                      //    REG_WR(VERA_ADDR_H, 0x10),        // addr $0mmll incr +1
-    REG_WR_VALUE(VERA_DATA0, 0x00, 0x200),
+    REG_WR(VERA_ADDR_H, 0x10),        // addr $0mmll incr +1
+    REG_WR_VALUE(VERA_DATA0, 0x01, 0x200),
 
     DONE()        // ending command
 };

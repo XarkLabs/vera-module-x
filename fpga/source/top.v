@@ -9,7 +9,12 @@ module top(
     input  wire       extbus_rd_n,   /* Read strobe */
     input  wire       extbus_wr_n,   /* Write strobe */
     input  wire [4:0] extbus_a,      /* Address */
+`ifndef VERILATOR
     inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
+`else
+    input  wire [7:0] extbus_d_i,      /* Data (bi-directional) */
+    output reg  [7:0] extbus_d_o,      /* Data (bi-directional) */
+`endif
     output wire       extbus_irq_n,  /* IRQ */
 
     // VGA interface
@@ -71,7 +76,12 @@ module top(
 //    input  wire [4:0] extbus_a,      /* Address */
     input  wire       gpio_27, gpio_26, gpio_25, gpio_23, led_blue,     /* Address */
 //    inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
+`ifndef VERILATOR
     inout wire        gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31,
+`else
+    input  wire [7:0] extbus_d_i,      /* Data (bi-directional) */
+    output reg  [7:0] extbus_d_o,      /* Data (bi-directional) */
+`endif
     output wire       gpio_10,      //extbus_irq_n,  /* IRQ */
 
     // VGA interface
@@ -102,8 +112,10 @@ module top(
     assign      extbus_wr_n = ~(led_red == 1'b0 && led_green == 1'b0);
     wire [4:0]  extbus_a;      /* Address */
     assign      extbus_a = {gpio_27, gpio_26, gpio_25, gpio_23, led_blue};
+`ifndef VERILATOR
     wire [7:0]  extbus_d;      /* Data (bi-directional) */
     assign      extbus_d = {gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31};
+`endif
     wire        extbus_irq_n;  /* IRQ */
     assign      gpio_10 = extbus_irq_n;
 
@@ -336,7 +348,11 @@ module top(
 
     wire bus_read  = !extbus_cs_n &&  extbus_wr_n && !extbus_rd_n;
     wire bus_write = !extbus_cs_n && !extbus_wr_n;
+    `ifndef VERILATOR
     assign extbus_d = bus_read ? rddata : 8'bZ;
+    `else
+    assign extbus_d_o = rddata;
+    `endif
 
     wire [3:0] irq_enable = {irq_enable_audio_fifo_low_r, irq_enable_sprite_collision_r, irq_enable_line_r, irq_enable_vsync_r};
     wire [3:0] irq_status = {audio_fifo_low,              irq_status_sprite_collision_r, irq_status_line_r, irq_status_vsync_r};
@@ -349,7 +365,11 @@ module top(
     reg [7:0] wrdata_r;
     always @(negedge bus_write) begin
         wraddr_r <= extbus_a;
+`ifndef VERILATOR
         wrdata_r <= extbus_d;
+`else
+        wrdata_r <= extbus_d_i;
+`endif
     end
     always @(negedge bus_read) begin
         rdaddr_r <= extbus_a;
@@ -698,7 +718,7 @@ module top(
         if (reset) begin
             vram_addr_0_r                 <= 0;
             vram_addr_1_r                 <= 0;
-            vram_addr_incr_0_r            <= 4'b0001;   //0;
+            vram_addr_incr_0_r            <= 0;
             vram_addr_incr_1_r            <= 0;
             vram_addr_decr_0_r            <= 0;
             vram_addr_decr_1_r            <= 0;
