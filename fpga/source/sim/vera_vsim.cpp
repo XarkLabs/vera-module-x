@@ -18,10 +18,13 @@
 #include <SDL.h>                    // for SDL_RENDER
 #include <SDL_image.h>
 
+#if !defined(SDL_RENDER)
+#define SDL_RENDER 0
+#endif
+
 #define LOGDIR "../logs/"
 
 #define MAX_TRACE_FRAMES 3        // video frames to dump to VCD file (and then screen-shot and exit)
-#define MAX_UPLOADS      8         // maximum number of "payload" uploads
 
 // Current simulation time (64-bit unsigned)
 vluint64_t main_time         = 0;
@@ -74,36 +77,91 @@ double sc_time_stamp()
 
 #ifdef XARK_UPDUINO
 
+// localparam RnW_WRITE         = 1'b0;
+// localparam RnW_READ          = 1'b1;
+// localparam CS_ENABLED        = 1'b0;
+// localparam CS_DISABLED       = 1'b1;
+//     input  wire       gpio_20,       //  clk25,
+//     input  wire       led_red,       // extbus_cs_n,
+//     input  wire                      // extbus_rd_n (N/A)
+//     input  wire       led_green,     // extbus_wr_n
+//     input  wire       gpio_27, gpio_26, gpio_25, gpio_23, led_blue,     // [4:0] extbus_a
+//     inout  wire       gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31; // [7:0] extbus_d
+//     output wire       gpio_10,       // extbus_irq_n
+
 #define TOP_clk   top->gpio_20
+#define TOP_irq_n top->gpio_10
 #define TOP_cs_n  top->led_red
 #define TOP_rnwr  top->led_green
+
 #define TOP_hsync top->gpio_12
 #define TOP_vsync top->gpio_21
 #define TOP_red   ((top->gpio_13 << 3) | (top->gpio_11 << 2) | (top->gpio_44 << 1) | (top->gpio_48 << 0))
 #define TOP_green ((top->gpio_19 << 3) | (top->gpio_9 << 2) | (top->gpio_4 << 1) | (top->gpio_45 << 0))
 #define TOP_blue  ((top->gpio_18 << 3) | (top->gpio_6 << 2) | (top->gpio_3 << 1) | (top->gpio_47 << 0))
 
-//     input  wire       gpio_20,  //  clk25,
-//     // External bus interface
-//     input  wire       led_red,  //extbus_cs_n,   /* Chip select */
-// //    input  wire       extbus_rd_n,   /* Read strobe */
-//     input  wire       led_green,    //extbus_wr_n,   /* Write strobe */
-// //    input  wire [4:0] extbus_a,      /* Address */
-//     input  wire       gpio_27, gpio_26, gpio_25, gpio_23, led_blue,     /* Address */
-// //    inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
-//     inout wire        gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31,
-//     output wire       gpio_10,      //extbus_irq_n,  /* IRQ */
+void set_bus(Vtop * top, bool cs_n, bool rd_n, bool wr_n, uint8_t addr)
+{
+    assert((rd_n != wr_n) || (rd_n == 1 && wr_n == 1));
+    TOP_cs_n = cs_n;
+    (void)rd_n;
+    TOP_rnwr      = wr_n;
+    top->gpio_27  = addr & 0x10 ? 1 : 0;
+    top->gpio_26  = addr & 0x08 ? 1 : 0;
+    top->gpio_25  = addr & 0x04 ? 1 : 0;
+    top->gpio_23  = addr & 0x02 ? 1 : 0;
+    top->led_blue = addr & 0x01 ? 1 : 0;
+}
+
+void set_data(Vtop * top, uint8_t v)
+{
+    top->gpio_28 = (v & 0x80) ? 1 : 0;
+    top->gpio_38 = (v & 0x40) ? 1 : 0;
+    top->gpio_42 = (v & 0x20) ? 1 : 0;
+    top->gpio_36 = (v & 0x10) ? 1 : 0;
+    top->gpio_43 = (v & 0x08) ? 1 : 0;
+    top->gpio_34 = (v & 0x04) ? 1 : 0;
+    top->gpio_37 = (v & 0x02) ? 1 : 0;
+    top->gpio_31 = (v & 0x01) ? 1 : 0;
+}
+
+uint8_t get_data(Vtop * top)
+{
+    return (top->gpio_28 << 7) | (top->gpio_38 << 6) | (top->gpio_42 << 5) | (top->gpio_36 << 4) | (top->gpio_43 << 3) |
+           (top->gpio_34 << 2) | (top->gpio_37 << 1) | (top->gpio_31 << 0);
+}
 
 #else
 
 #define TOP_clk   top->clk25
+#define TOP_irq_n top->extbus_irq_n
 #define TOP_cs_n  top->extbus_cs_n
-#define TOP_rnwr  top->extbus_rd_n
+#define TOP_rd_n  top->extbus_rd_n
+#define TOP_wr_n  top->extbus_wr_n
+
 #define TOP_hsync top->vga_hsync
 #define TOP_vsync top->vga_vsync
 #define TOP_red   top->vga_r
 #define TOP_green top->vga_g
 #define TOP_blue  top->vga_b
+
+void set_bus(Vtop * top, bool cs_n, bool rd_n, bool wr_n, uint8_t addr)
+{
+    TOP_cs_n      = cs_n;
+    TOP_rd_n      = rd_n;
+    TOP_wr_n      = wr_n;
+    top->extbus_a = addr & 0x1f;
+}
+
+void set_data(Vtop * top, uint8_t v)
+{
+    top->extbus_d = v;
+}
+
+uint8_t get_data(Vtop * top)
+{
+    return top->extbus_d;
+}
 
 #endif
 
@@ -130,8 +188,12 @@ int main(int argc, char ** argv)
     }
 
     double Hz = 1000000.0 / ((TOTAL_WIDTH * TOTAL_HEIGHT) * (1.0 / PIXEL_CLOCK_MHZ));
-    log_printf(
-        "\n%s simulation. Video VGA %dx%d@%0.03f Hz (pixel clock %0.03f MHz)\n", design_name, VISIBLE_WIDTH, VISIBLE_HEIGHT, Hz, PIXEL_CLOCK_MHZ);
+    log_printf("\n%s simulation. Video VGA %dx%d@%0.03f Hz (pixel clock %0.03f MHz)\n",
+               design_name,
+               VISIBLE_WIDTH,
+               VISIBLE_HEIGHT,
+               Hz,
+               PIXEL_CLOCK_MHZ);
 
     int nextarg = 1;
 
@@ -395,6 +457,12 @@ int main(int argc, char ** argv)
     tfp->close();
 #endif
 
+    log_printf("Simulation ended after %d frames, %lu pixel clock ticks (%.04f milliseconds)\n",
+               frame_num,
+               (main_time / 2),
+               ((1.0 / (PIXEL_CLOCK_MHZ * 1000000)) * (main_time / 2)) * 1000.0);
+
+
 #if SDL_RENDER
     if (sim_render)
     {
@@ -404,8 +472,17 @@ int main(int argc, char ** argv)
         }
         else
         {
-            fprintf(stderr, "Press RETURN:\n");
-            fgetc(stdin);
+            fprintf(stderr, "\n(Waiting for key)\n");
+            while (1)
+            {
+                SDL_Event e;
+                SDL_PollEvent(&e);
+
+                if (e.type == SDL_QUIT || e.type == SDL_KEYDOWN)
+                {
+                    break;
+                }
+            }
         }
 
         SDL_DestroyWindow(window);
@@ -414,10 +491,7 @@ int main(int argc, char ** argv)
     }
 #endif
 
-    log_printf("Simulation ended after %d frames, %lu pixel clock ticks (%.04f milliseconds)\n",
-               frame_num,
-               (main_time / 2),
-               ((1.0 / (PIXEL_CLOCK_MHZ * 1000000)) * (main_time / 2)) * 1000.0);
+    printf("Exit.\n");
 
     return EXIT_SUCCESS;
 }
