@@ -42,7 +42,6 @@ bool          sim_render = SDL_RENDER;
 bool          wait_close = false;
 
 bool vsync_detect = false;
-bool vtop_detect  = false;
 bool hsync_detect = false;
 
 uint16_t last_read_byte;
@@ -247,11 +246,18 @@ uint8_t hello_msg[] =
     "l\x61"
     "o\x61";
 
+uint8_t inc_word[0x4000];
 
 BusCommand TestCommands[] = {
     // clear VRAM
 
     DELAY(500),        // delay cycles
+
+    REG_WR(VERA_ADDR_L, 0x00),                      // addr $hmm00
+    REG_WR(VERA_ADDR_M, 0x00),                      // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10),                      // addr $0mmll incr +1
+    REG_WR_VALUE(VERA_DATA0, 0x00, 0x1F000),        // clear VRAM
+    DELAY(500),                                     // delay cycles
 
     // screen_init:
     REG_WR(VERA_CTRL, 0x00),        // 	stz VERA_CTRL   ;set ADDR1 active
@@ -265,12 +271,12 @@ BusCommand TestCommands[] = {
     //  ldx #$10 | ^charset_addr
     //  stx VERA_ADDR_H
 
-
     REG_WR(VERA_ADDR_L, VERA_CHARSET_BASE & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, (VERA_CHARSET_BASE >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | ((VERA_CHARSET_BASE >> 16) & 0x01)),        // addr $0mmll incr +1
     REG_WR_ARRAY(VERA_DATA0, iso_charset, sizeof(iso_charset)),
 
+    DELAY(500),        // delay cycles
     // 	; Layer 1 configuration
     // 	lda #((1<<6)|(2<<4)|(0<<0))
     // 	sta VERA_L1_CONFIG
@@ -290,6 +296,14 @@ BusCommand TestCommands[] = {
     // 	stz VERA_L1_VSCROLL_H
     REG_WR(VERA_L1_VSCROLL_H, 0x00),
 
+    REG_WR(VERA_L0_CONFIG, 0x04),
+    REG_WR(VERA_L0_MAPBASE, (0x0000 >> 9)),
+    REG_WR(VERA_L0_TILEBASE, ((0x0000 >> 11) << 2) | 0x01),
+    REG_WR(VERA_L0_HSCROLL_L, 0x00),
+    REG_WR(VERA_L0_HSCROLL_H, 0x00),
+    REG_WR(VERA_L0_VSCROLL_L, 0x00),
+    REG_WR(VERA_L0_VSCROLL_H, 0x00),
+
     // 	; Display composer configuration
     // 	lda #2
     // 	sta VERA_CTRL
@@ -303,13 +317,13 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_DC_VSTART, 0),
     // 	lda #(480>>2)
     // 	sta VERA_DC_VSTOP
-    REG_WR(VERA_DC_VSTOP, (480 >> 2)),
+    REG_WR(VERA_DC_VSTOP, (480 >> 1)),
 
     // 	stz VERA_CTRL
     REG_WR(VERA_CTRL, 0x00),
     // 	lda #$21
     // 	sta VERA_DC_VIDEO
-    REG_WR(VERA_DC_VIDEO, 0x21),
+    REG_WR(VERA_DC_VIDEO, 0x11),
     // 	lda #128
     // 	sta VERA_DC_HSCALE
     REG_WR(VERA_DC_HSCALE, 128),
@@ -341,11 +355,64 @@ BusCommand TestCommands[] = {
     // 	sta cscrmd      ; force setting color on first mode change
     // 	rts
 
-    REG_WR(VERA_ADDR_L, VERA_CHARMAP_BASE & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, (VERA_CHARMAP_BASE >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | ((VERA_CHARMAP_BASE >> 16) & 0x01)),        // addr $0mmll incr +1
-//    REG_WR_ARRAY(VERA_DATA0, hello_msg, sizeof(hello_msg)),
-    REG_WR_VALUE(VERA_DATA0, '@', 0x4000),
+    REG_WR(VERA_ADDR_L, (0 * 80 + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((0 * 80 + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((0 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR_VALUE(VERA_DATA0, 0xFF, 80),
+    REG_WR(VERA_ADDR_L, (1 * 80 + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((1 * 80 + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0xc0 | (((1 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +80
+    REG_WR_VALUE(VERA_DATA0, 0x80, 478),
+    REG_WR(VERA_ADDR_L, (1 * 80 + 79) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((1 * 80 + 79) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0xc0 | (((1 * 80 + 79) >> 16) & 0x01)),        // addr $0mmll incr +80
+    REG_WR_VALUE(VERA_DATA0, 0x01, 478),
+    REG_WR(VERA_ADDR_L, (479 * 80 + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((479 * 80 + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((479 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR_VALUE(VERA_DATA0, 0xFF, 80),
+
+    REG_WR(VERA_ADDR_L, (10 * 80 + 10) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((10 * 80 + 10) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 10) >> 16) & 0x01)),        // addr $0mmll incr +80
+    
+    REG_WR(VERA_DATA0, 0b00000000),
+    REG_WR(VERA_DATA0, 0b01100110),
+    REG_WR(VERA_DATA0, 0b01100110),
+    REG_WR(VERA_DATA0, 0b01111110),
+    REG_WR(VERA_DATA0, 0b01100110),
+    REG_WR(VERA_DATA0, 0b01100110),
+    REG_WR(VERA_DATA0, 0b01100110),
+    REG_WR(VERA_DATA0, 0b00000000),
+
+    REG_WR(VERA_ADDR_L, (10 * 80 + 11) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((10 * 80 + 11) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 11) >> 16) & 0x01)),        // addr $0mmll incr +80
+    
+    REG_WR(VERA_DATA0, 0b00000000),
+    REG_WR(VERA_DATA0, 0b00111100),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00111100),
+    REG_WR(VERA_DATA0, 0b00000000),
+
+    REG_WR(VERA_ADDR_L, (10 * 80 + 12) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((10 * 80 + 12) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 12) >> 16) & 0x01)),        // addr $0mmll incr +80
+    
+    REG_WR(VERA_DATA0, 0b00000000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00000000),
+    REG_WR(VERA_DATA0, 0b00011000),
+    REG_WR(VERA_DATA0, 0b00000000),
+
+
+
 
     DELAY(50000),        // delay cycles
 
@@ -428,7 +495,7 @@ const char * vera_reg_name(int r)
     return "?";
 }
 
-    const float BusSpeed = 8.0 / PIXEL_CLOCK_MHZ;
+const float  BusSpeed       = 8.0 / PIXEL_CLOCK_MHZ;
 float        BusFraction    = 0.0;
 uint64_t     BusCycle       = 0;
 Bus          BusState       = Bus::IDLE;
@@ -660,6 +727,11 @@ int main(int argc, char ** argv)
 
     sigaction(SIGINT, &sigIntHandler, NULL);
 
+    for (int i = 0; i < sizeof(inc_word) / 2; i++)
+    {
+        inc_word[i] = i;
+    }
+
     if ((logfile = fopen(LOGDIR "vera_vsim.log", "w")) == NULL)
     {
         printf("can't create " LOGDIR "vera_vsim.log\n");
@@ -763,6 +835,10 @@ int main(int argc, char ** argv)
     tfp->open(trace_path);
 #endif
 
+    bool last_hsync = false;
+    bool last_vsync = false;
+    bool hsync      = false;
+    bool vsync      = false;
     while (!done && !Verilated::gotFinish())
     {
         process_bus(top);
@@ -785,8 +861,10 @@ int main(int argc, char ** argv)
 #endif
         main_time++;
 
-        bool hsync = H_SYNC_POLARITY ? TOP_hsync : !TOP_hsync;
-        bool vsync = V_SYNC_POLARITY ? TOP_vsync : !TOP_vsync;
+        last_hsync = hsync;
+        hsync      = H_SYNC_POLARITY ? TOP_hsync : !TOP_hsync;
+        last_vsync = vsync;
+        vsync      = V_SYNC_POLARITY ? TOP_vsync : !TOP_vsync;
 
 #if SDL_RENDER
         if (sim_render)
@@ -795,7 +873,7 @@ int main(int argc, char ** argv)
             SDL_SetRenderDrawColor(
                 renderer, (TOP_red << 4) | TOP_red, (TOP_green << 4) | TOP_green, (TOP_blue << 4) | TOP_blue, 255);
 
-            if (frame_num > 0)
+            if (frame_num >= 0)
             {
                 SDL_RenderDrawPoint(renderer, current_x, current_y);
             }
@@ -806,12 +884,11 @@ int main(int argc, char ** argv)
         if (hsync)
             hsync_count++;
 
-        hsync_detect = false;
+        hsync_detect = !hsync && last_hsync;
 
         // end of hsync
-        if (!hsync && vga_hsync_previous)
+        if (hsync_detect)
         {
-            hsync_detect = true;
             if (hsync_count > hsync_max)
                 hsync_max = hsync_count;
             if (hsync_count < hsync_min || !hsync_min)
@@ -827,38 +904,34 @@ int main(int argc, char ** argv)
             if (vsync)
                 vsync_count++;
         }
-        vga_hsync_previous = hsync;
 
-        vsync_detect = false;
+        vsync_detect = !vsync && last_vsync;
 
-        if (vsync && !vga_vsync_previous)
+        if (vsync_detect)
         {
-            vtop_detect = true;
-        }
-
-        if (!vsync && vga_vsync_previous)
-        {
-            vsync_detect = true;
             if (current_y - 1 > y_max)
                 y_max = current_y - 1;
 
+            if (frame_num == 0)
+            {
+                first_frame_start = 0;        // main_time;
+            }
+            if (frame_num >= 0)
+            {
+                log_printf("[@t=%8lu] Frame %3d begin...\n", main_time / 2, frame_num);
+            }
             if (frame_num > 0)
             {
-                if (frame_num == 1)
-                {
-                    first_frame_start = main_time;
-                }
                 vluint64_t frame_time = (main_time - frame_start_time) / 2;
-                logonly_printf(
-                    "[@t=%8lu] Frame %3d, %lu pixel-clocks (% 0.03f msec real-time), %dx%d hsync %d, vsync %d\n",
-                    main_time / 2,
-                    frame_num,
-                    frame_time,
-                    ((1.0 / PIXEL_CLOCK_MHZ) * frame_time) / 1000.0,
-                    x_max,
-                    y_max + 1,
-                    hsync_max,
-                    vsync_count);
+                log_printf("[@t=%8lu] Frame %3d, %lu pixel-clocks (% 0.03f msec real-time), %dx%d hsync %d, vsync %d\n",
+                           main_time / 2,
+                           frame_num,
+                           frame_time,
+                           ((1.0 / PIXEL_CLOCK_MHZ) * frame_time) / 1000.0,
+                           x_max,
+                           y_max + 1,
+                           hsync_max,
+                           vsync_count);
 #if SDL_RENDER
 
                 if (sim_render)
@@ -913,8 +986,6 @@ int main(int argc, char ** argv)
                 log_printf("line %d >= TOTAL_HEIGHT\n", y_max);
             }
         }
-
-        vga_vsync_previous = vsync;
 
 #if SDL_RENDER
         if (sim_render)
