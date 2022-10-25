@@ -1,27 +1,22 @@
 // VERA register defines
 
-// address and control
-#define VERA_ADDR_L 0x00
-#define VERA_ADDR_M 0x01
-#define VERA_ADDR_H 0x02
-#define VERA_DATA0  0x03
-#define VERA_DATA1  0x04
-#define VERA_CTRL   0x05
-// interrupt
-#define VERA_IEN        0x06
-#define VERA_ISR        0x07
-#define VERA_IRQ_LINE_L 0x08
-// display control
-#define VERA_DC_VIDEO  0x09
-#define VERA_DC_HSCALE 0x0A
-#define VERA_DC_VSCALE 0x0B
-#define VERA_DC_BORDER 0x0C
-// display size
-#define VERA_DC_HSTART 0x09
-#define VERA_DC_HSTOP  0x0A
-#define VERA_DC_VSTART 0x0B
-#define VERA_DC_VSTOP  0x0C
-// layer 0
+#define VERA_ADDR_L       0x00
+#define VERA_ADDR_M       0x01
+#define VERA_ADDR_H       0x02
+#define VERA_DATA0        0x03
+#define VERA_DATA1        0x04
+#define VERA_CTRL         0x05
+#define VERA_IEN          0x06
+#define VERA_ISR          0x07
+#define VERA_IRQ_LINE_L   0x08
+#define VERA_DC_VIDEO     0x09
+#define VERA_DC_HSCALE    0x0A
+#define VERA_DC_VSCALE    0x0B
+#define VERA_DC_BORDER    0x0C
+#define VERA_DC_HSTART    0x09
+#define VERA_DC_HSTOP     0x0A
+#define VERA_DC_VSTART    0x0B
+#define VERA_DC_VSTOP     0x0C
 #define VERA_L0_CONFIG    0x0D
 #define VERA_L0_MAPBASE   0x0E
 #define VERA_L0_TILEBASE  0x0F
@@ -29,7 +24,6 @@
 #define VERA_L0_HSCROLL_H 0x11
 #define VERA_L0_VSCROLL_L 0x12
 #define VERA_L0_VSCROLL_H 0x13
-// layer 1
 #define VERA_L1_CONFIG    0x14
 #define VERA_L1_MAPBASE   0x15
 #define VERA_L1_TILEBASE  0x16
@@ -37,15 +31,28 @@
 #define VERA_L1_HSCROLL_H 0x18
 #define VERA_L1_VSCROLL_L 0x19
 #define VERA_L1_VSCROLL_H 0x1A
-// audio
-#define VERA_AUDIO_CTRL 0x1B
-#define VERA_AUDIO_RATE 0x1C
-#define VERA_AUDIO_DATA 0x1D
-// SPI
-#define VERA_SPI_DATA 0x1E
-#define VERA_SPI_CTRL 0x1F
+#define VERA_AUDIO_CTRL   0x1B
+#define VERA_AUDIO_RATE   0x1C
+#define VERA_AUDIO_DATA   0x1D
+#define VERA_SPI_DATA     0x1E
+#define VERA_SPI_CTRL     0x1F
 
 // VERA VRAM addresses
+//
+// VERA Video RAM Layout
+//
+// $0:0000 - $1:2BFF  320x240@256c Bitmap [320x200: - $0:F9FF]
+// $1:2C00 - $1:2FFF  -- unused --
+// $1:3000 - $1:AFFF  Sprites ($1000 per sprite)
+// $1:B000 - $1:EBFF  Text Mode
+// $1:EC00 - $1:EFFF  -- unused --
+// $1:F000 - $1:F7FF  Charset
+// $1:F800 - $1:F9BF  -- unused --
+// $1:F9C0 - $1:FFFF  Vera internal (PSG, pal, spr)
+#define VERA_BITMAP_DATA  0x00000
+#define VERA_SPRITE_DATA  0x13000
+#define VERA_CHARMAP_BASE 0x1B000
+#define VERA_CHARSET_BASE 0x1F000
 #define VERA_PSG_BASE     0x1F9C0
 #define VERA_PALETTE_BASE 0x1FA00
 #define VERA_SPRITES_BASE 0x1FC00
