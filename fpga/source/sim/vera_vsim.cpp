@@ -355,6 +355,13 @@ BusCommand TestCommands[] = {
     // 	sta cscrmd      ; force setting color on first mode change
     // 	rts
 
+    // color 0 = blue
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
     REG_WR(VERA_ADDR_L, (0 * 80 + 0) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((0 * 80 + 0) >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | (((0 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
@@ -375,7 +382,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_L, (10 * 80 + 10) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((10 * 80 + 10) >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 10) >> 16) & 0x01)),        // addr $0mmll incr +80
-    
+
     REG_WR(VERA_DATA0, 0b00000000),
     REG_WR(VERA_DATA0, 0b01100110),
     REG_WR(VERA_DATA0, 0b01100110),
@@ -388,7 +395,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_L, (10 * 80 + 11) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((10 * 80 + 11) >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 11) >> 16) & 0x01)),        // addr $0mmll incr +80
-    
+
     REG_WR(VERA_DATA0, 0b00000000),
     REG_WR(VERA_DATA0, 0b00111100),
     REG_WR(VERA_DATA0, 0b00011000),
@@ -401,7 +408,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_L, (10 * 80 + 12) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((10 * 80 + 12) >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 12) >> 16) & 0x01)),        // addr $0mmll incr +80
-    
+
     REG_WR(VERA_DATA0, 0b00000000),
     REG_WR(VERA_DATA0, 0b00011000),
     REG_WR(VERA_DATA0, 0b00011000),
@@ -410,8 +417,201 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_DATA0, 0b00000000),
     REG_WR(VERA_DATA0, 0b00011000),
     REG_WR(VERA_DATA0, 0b00000000),
+//
+    DELAY(500000),        // delay cycles
 
 
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0xFF),
+    REG_WR(VERA_DATA0, 0x0F),
+
+    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_DATA0, 0x0C),
+    REG_WR(VERA_DATA0, 0x00),
 
 
     DELAY(50000),        // delay cycles
@@ -912,14 +1112,6 @@ int main(int argc, char ** argv)
             if (current_y - 1 > y_max)
                 y_max = current_y - 1;
 
-            if (frame_num == 0)
-            {
-                first_frame_start = 0;        // main_time;
-            }
-            if (frame_num >= 0)
-            {
-                log_printf("[@t=%8lu] Frame %3d begin...\n", main_time / 2, frame_num);
-            }
             if (frame_num > 0)
             {
                 vluint64_t frame_time = (main_time - frame_start_time) / 2;
