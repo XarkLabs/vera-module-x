@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module composer(
     input  wire        rst,
@@ -197,3 +197,4 @@ module composer(
     end
 
 endmodule
+`default_nettype wire               // restore default

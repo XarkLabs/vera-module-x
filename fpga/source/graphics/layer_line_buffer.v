@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module layer_line_buffer(
     input  wire        rst,
@@ -50,3 +50,4 @@ module layer_line_buffer(
     end
 
 endmodule
+`default_nettype wire               // restore default

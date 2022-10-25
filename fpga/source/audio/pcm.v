@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module pcm(
     input  wire        rst,
@@ -226,3 +226,4 @@ module pcm(
     assign right_audio = right_scaled_r[21:6];
 
 endmodule
+`default_nettype wire               // restore default

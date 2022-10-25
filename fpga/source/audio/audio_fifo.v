@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module audio_fifo(
     input  wire       clk,
@@ -47,3 +47,4 @@ module audio_fifo(
     end
 
 endmodule
+`default_nettype wire               // restore default

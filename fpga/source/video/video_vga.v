@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module video_vga(
     input  wire        rst,
@@ -102,3 +102,4 @@ module video_vga(
     end
 
 endmodule
+`default_nettype wire               // restore default

@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module video_modulator(
     input  wire        clk,
@@ -92,3 +92,4 @@ module video_modulator(
     wire unused_bits = &{1'b0, i_s[3:0], q_s[3:0], lum[1:0], chroma_s[7:0]};
 
 endmodule
+`default_nettype wire               // restore default

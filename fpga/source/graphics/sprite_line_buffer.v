@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module sprite_line_buffer(
     input  wire        rst,
@@ -141,3 +141,4 @@ module sprite_line_buffer(
     wire unused_bits = &{1'b0, wr_addr_1[1:0], wr_addr_2[1:0]};
 
 endmodule
+`default_nettype wire               // restore default

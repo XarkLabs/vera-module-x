@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module dpram #(parameter ADDR_WIDTH = 8, DATA_WIDTH = 8) (
     input  wire                  wr_clk,
@@ -25,3 +25,4 @@ module dpram #(parameter ADDR_WIDTH = 8, DATA_WIDTH = 8) (
 `endif
 
 endmodule
+`default_nettype wire               // restore default

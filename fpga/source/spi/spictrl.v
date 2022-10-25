@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module spictrl(
     input  wire       rst,
@@ -68,3 +68,4 @@ module spictrl(
     end
 
 endmodule
+`default_nettype wire               // restore default

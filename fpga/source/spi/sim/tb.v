@@ -1,5 +1,5 @@
 `timescale 1 ns / 1 ps
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module tb();
 
@@ -70,3 +70,4 @@ module tb();
 
 
 endmodule
+`default_nettype wire               // restore default

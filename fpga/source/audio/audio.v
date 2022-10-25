@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module audio(
     input  wire        rst,
@@ -107,3 +107,4 @@ module audio(
         .i2s_data(i2s_data));
 
 endmodule
+`default_nettype wire               // restore default

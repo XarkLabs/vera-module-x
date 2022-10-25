@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module layer_renderer(
     input  wire        rst,
@@ -547,3 +547,4 @@ module layer_renderer(
     end
 
 endmodule
+`default_nettype wire               // restore default

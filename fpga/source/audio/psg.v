@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module psg(
     input  wire        rst,
@@ -254,3 +254,4 @@ module psg(
     assign right_audio = right_sample_r;
 
 endmodule
+`default_nettype wire               // restore default

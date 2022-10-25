@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module video_modulator_sinlut(
     input  wire       clk,
@@ -521,3 +521,4 @@ module video_modulator_sinlut(
     endcase
 
 endmodule
+`default_nettype wire               // restore default

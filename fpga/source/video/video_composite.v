@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module video_composite(
     input  wire        rst,
@@ -183,3 +183,4 @@ module video_composite(
     assign rgb_sync_n = mod_sync_n;
 
 endmodule
+`default_nettype wire               // restore default

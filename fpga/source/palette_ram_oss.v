@@ -1,4 +1,5 @@
 `ifdef XARK_OSS
+`default_nettype none               // mandatory for Verilog sanity
 
 module palette_ram(
     input wire          wr_clk_i,
@@ -42,4 +43,5 @@ end
 
 endmodule
 
+`default_nettype wire               // restore default
 `endif

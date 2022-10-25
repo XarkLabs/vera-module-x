@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module reset_sync(
     input  wire async_rst_in,
@@ -29,3 +29,4 @@ module reset_sync(
     assign reset_out = dff_rr;
 
 endmodule
+`default_nettype wire               // restore default

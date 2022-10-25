@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module dacif(
     input  wire        rst,
@@ -78,3 +78,4 @@ module dacif(
     assign i2s_data  = shiftreg_r[24];
 
 endmodule
+`default_nettype wire               // restore default

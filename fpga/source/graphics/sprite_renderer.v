@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module sprite_renderer(
     input  wire        rst,
@@ -439,3 +439,4 @@ module sprite_renderer(
     assign render_busy = start_render_r || (state_r != STATE_IDLE);
 
 endmodule
+`default_nettype wire               // restore default

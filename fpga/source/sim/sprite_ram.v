@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module sprite_ram(
     input  wire        wr_clk_i,
@@ -60,3 +60,4 @@ module sprite_ram(
     end
 
 endmodule
+`default_nettype wire               // restore default

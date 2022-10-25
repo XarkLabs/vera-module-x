@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module main_ram(
     input  wire        clk,
@@ -181,3 +181,4 @@ module main_ram(
 `endif
 
 endmodule
+`default_nettype wire               // restore default

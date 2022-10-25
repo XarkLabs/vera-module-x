@@ -1,3 +1,6 @@
+`ifdef XARK_OSS
+`default_nettype none               // mandatory for Verilog sanity
+
 module sprite_ram(
     input wire          wr_clk_i,
     input wire          rd_clk_i,
@@ -45,3 +48,5 @@ always_ff @(posedge rd_clk_i) begin
 end
 
 endmodule
+`default_nettype wire               // restore default
+`endif

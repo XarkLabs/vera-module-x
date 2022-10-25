@@ -1,4 +1,4 @@
-//`default_nettype none
+`default_nettype none               // mandatory for Verilog sanity
 
 module vram_if(
     input  wire        clk,
@@ -120,3 +120,4 @@ module vram_if(
     assign if3_rddata = ram_rddata;
 
 endmodule
+`default_nettype wire               // restore default
