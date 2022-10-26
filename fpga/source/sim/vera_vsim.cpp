@@ -192,66 +192,60 @@ enum struct Cmd
 struct BusCommand
 {
 
-    Cmd     cmd;
-    uint8_t regnum;
-    uint8_t data;
-    char *  dataptr;
-    int     count;
+    Cmd          cmd;
+    uint8_t      regnum;
+    uint8_t      data;
+    const uint8_t * dataptr;
+    int          count;
+    int          dataindex;
 };
 
 #define DELAY(delay)                                                                                                   \
     {                                                                                                                  \
-        Cmd::DELAY, 0, 0, nullptr, (delay)                                                                             \
+        Cmd::DELAY, 0, 0, nullptr, (delay), 0                                                                          \
     }
 
 #define REG_WR(reg, value)                                                                                             \
     {                                                                                                                  \
-        Cmd::REG_WR, (reg), (value), nullptr, 0                                                                        \
+        Cmd::REG_WR, (reg), (value), nullptr, 0, 0                                                                     \
     }
 
 #define REG_RD(reg)                                                                                                    \
     {                                                                                                                  \
-        Cmd::REG_RD, (reg), 0, nullptr, 0                                                                              \
+        Cmd::REG_RD, (reg), 0, nullptr, 0, 0                                                                           \
     }
 
 #define REG_WR_VALUE(reg, value, count)                                                                                \
     {                                                                                                                  \
-        Cmd::REG_WR_VALUE, (reg), (value), 0, (count)                                                                  \
+        Cmd::REG_WR_VALUE, (reg), (value), 0, (count), 0                                                               \
     }
 
 #define REG_WR_ARRAY(reg, array, count)                                                                                \
     {                                                                                                                  \
-        Cmd::REG_WR_ARRAY, (reg), 0, (char *)(array), (count)                                                          \
+        Cmd::REG_WR_ARRAY, (reg), 0, (array), (count), 0                                 \
     }
 
 #define REG_WR_FILE(reg, file, count)                                                                                  \
     {                                                                                                                  \
-        Cmd::REG_WR_FILE, (reg), 0, (file), (count)                                                                    \
+        Cmd::REG_WR_FILE, (reg), 0, reinterpret_cast<const uint8_t *>(file), (count), 0                                                                 \
     }
 
 #define REG_RD_FILE(reg, file, count)                                                                                  \
     {                                                                                                                  \
-        Cmd::REG_RD_FILE, (reg), 0, (file), (count)                                                                    \
+        Cmd::REG_RD_FILE, (reg), 0, reinterpret_cast<const uint8_t *>(file), (count), 0                                                                 \
     }
 
 #define DONE()                                                                                                         \
     {                                                                                                                  \
-        Cmd::DONE, 0, 0, nullptr, 0                                                                                    \
+        Cmd::DONE, 0, 0, nullptr, 0, 0                                                                                 \
     }
-
-uint8_t hello_msg[] =
-    "H\x61"
-    "e\x61"
-    "l\x61"
-    "l\x61"
-    "o\x61";
-
-uint8_t inc_word[0x4000];
 
 BusCommand TestCommands[] = {
     // clear VRAM
 
     DELAY(500),        // delay cycles
+
+    REG_WR(VERA_CTRL, 0x00),
 
     REG_WR(VERA_ADDR_L, 0x00),                      // addr $hmm00
     REG_WR(VERA_ADDR_M, 0x00),                      // addr $h00ll
@@ -260,9 +254,9 @@ BusCommand TestCommands[] = {
     DELAY(500),                                     // delay cycles
 
     // screen_init:
-    REG_WR(VERA_CTRL, 0x00),        // 	stz VERA_CTRL   ;set ADDR1 active
-                                    // 	lda #2
-                                    // 	jsr screen_set_charset
+    REG_WR(VERA_CTRL, 0x00),
+    // 	lda #2
+    // 	jsr screen_set_charset
 
     //  ldx #<charset_addr
     //  stx VERA_ADDR_L
@@ -274,7 +268,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_L, VERA_CHARSET_BASE & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, (VERA_CHARSET_BASE >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | ((VERA_CHARSET_BASE >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR_ARRAY(VERA_DATA0, iso_charset, sizeof(iso_charset)),
+    REG_WR_ARRAY(VERA_DATA0, iso_charset, sizeof (iso_charset)),
 
     DELAY(500),        // delay cycles
     // 	; Layer 1 configuration
@@ -323,7 +317,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_CTRL, 0x00),
     // 	lda #$21
     // 	sta VERA_DC_VIDEO
-    REG_WR(VERA_DC_VIDEO, 0x11),
+    REG_WR(VERA_DC_VIDEO, 0x31),
     // 	lda #128
     // 	sta VERA_DC_HSCALE
     REG_WR(VERA_DC_HSCALE, 128),
@@ -379,48 +373,69 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_H, 0x10 | (((479 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
     REG_WR_VALUE(VERA_DATA0, 0xFF, 80),
 
-    REG_WR(VERA_ADDR_L, (10 * 80 + 10) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((10 * 80 + 10) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 10) >> 16) & 0x01)),        // addr $0mmll incr +80
+    REG_WR(VERA_ADDR_L, (20 * 80 + 8) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((20 * 80 + 8) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0xc0 | (((20 * 80 + 8) >> 16) & 0x01)),        // addr $0mmll incr +80
 
-    REG_WR(VERA_DATA0, 0b00000000),
-    REG_WR(VERA_DATA0, 0b01100110),
-    REG_WR(VERA_DATA0, 0b01100110),
-    REG_WR(VERA_DATA0, 0b01111110),
-    REG_WR(VERA_DATA0, 0b01100110),
-    REG_WR(VERA_DATA0, 0b01100110),
-    REG_WR(VERA_DATA0, 0b01100110),
-    REG_WR(VERA_DATA0, 0b00000000),
+    REG_WR(VERA_DATA0, 0b11111111),
+    REG_WR(VERA_DATA0, 0b10000000),
+    REG_WR(VERA_DATA0, 0b10001010),
+    REG_WR(VERA_DATA0, 0b10000101),
+    REG_WR(VERA_DATA0, 0b10001010),
+    REG_WR(VERA_DATA0, 0b10000101),
+    REG_WR(VERA_DATA0, 0b10000000),
+    REG_WR(VERA_DATA0, 0b11111111),
+    
+    REG_WR(VERA_ADDR_L, (20 * 80 + 9) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((20 * 80 + 9) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0xc0 | (((20 * 80 + 9) >> 16) & 0x01)),        // addr $0mmll incr +80
 
-    REG_WR(VERA_ADDR_L, (10 * 80 + 11) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((10 * 80 + 11) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 11) >> 16) & 0x01)),        // addr $0mmll incr +80
+    REG_WR(VERA_DATA0, 0b11111111),
+    REG_WR(VERA_DATA0, 0b00000001),
+    REG_WR(VERA_DATA0, 0b10100001),
+    REG_WR(VERA_DATA0, 0b01010001),
+    REG_WR(VERA_DATA0, 0b10100001),
+    REG_WR(VERA_DATA0, 0b01010001),
+    REG_WR(VERA_DATA0, 0b00000001),
+    REG_WR(VERA_DATA0, 0b11111111),
 
-    REG_WR(VERA_DATA0, 0b00000000),
-    REG_WR(VERA_DATA0, 0b00111100),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00111100),
-    REG_WR(VERA_DATA0, 0b00000000),
+    REG_WR(VERA_ADDR_L, (VERA_CHARMAP_BASE + (2 * 128) + 2) & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, ((VERA_CHARMAP_BASE + (2 * 128) + 2) >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_CHARMAP_BASE  + (2 * 128) + 2) >> 16) & 0x01)),        // addr $0mmll incr +1
 
-    REG_WR(VERA_ADDR_L, (10 * 80 + 12) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((10 * 80 + 12) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0xc0 | (((10 * 80 + 12) >> 16) & 0x01)),        // addr $0mmll incr +80
+    REG_WR(VERA_DATA0, 'V'),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, 'E'),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, 'R'),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, 'A'),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, ' '),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, 'i'),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, 's'),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, ' '),
+    REG_WR(VERA_DATA0, 0x01),
+    REG_WR(VERA_DATA0, 'a'),
+    REG_WR(VERA_DATA0, 0x51),
+    REG_WR(VERA_DATA0, 'l'),
+    REG_WR(VERA_DATA0, 0x51),
+    REG_WR(VERA_DATA0, 'i'),
+    REG_WR(VERA_DATA0, 0x51),
+    REG_WR(VERA_DATA0, 'v'),
+    REG_WR(VERA_DATA0, 0x51),
+    REG_WR(VERA_DATA0, 'e'),
+    REG_WR(VERA_DATA0, 0x51),
+    REG_WR(VERA_DATA0, '!'),
+    REG_WR(VERA_DATA0, 0x51),
 
-    REG_WR(VERA_DATA0, 0b00000000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00000000),
-    REG_WR(VERA_DATA0, 0b00011000),
-    REG_WR(VERA_DATA0, 0b00000000),
 //
+#if 0
     DELAY(500000),        // delay cycles
-
-
+ 
     REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
@@ -613,6 +628,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_DATA0, 0x0C),
     REG_WR(VERA_DATA0, 0x00),
 
+#endif
 
     DELAY(50000),        // delay cycles
 
@@ -715,7 +731,7 @@ void process_bus(Vtop * top)
 
         bool rd_n = (BusCurCmd.cmd == Cmd::REG_RD || BusCurCmd.cmd == Cmd::REG_RD_FILE) ? 0 : 1;
         bool wr_n =
-            (BusCurCmd.cmd == Cmd::REG_WR || BusCurCmd.cmd == Cmd::REG_WR_VALUE || BusCurCmd.cmd == Cmd::REG_WR_FILE)
+            (BusCurCmd.cmd == Cmd::REG_WR || BusCurCmd.cmd == Cmd::REG_WR_VALUE || BusCurCmd.cmd == Cmd::REG_WR_ARRAY || BusCurCmd.cmd == Cmd::REG_WR_FILE)
                 ? 0
                 : 1;
 
@@ -723,7 +739,7 @@ void process_bus(Vtop * top)
         {
             if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
             {
-                BusCurCmd.data = (uint8_t)(*BusCurCmd.dataptr);
+                BusCurCmd.data = (uint8_t)BusCurCmd.dataptr[BusCurCmd.dataindex];
             }
         }
 
@@ -783,6 +799,26 @@ void process_bus(Vtop * top)
                         BusCurCmd.count = ~0;
                     }
                 }
+                else
+                {
+                    BusRepeatCount += 1;
+                    if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
+                    {
+                        if (BusCurCmd.dataindex >= BusCurCmd.count)
+                        {
+                            log_printf("[%8lu/%8lu] REG_WR_ARRAY Array index overflow, index %d of array [%d]\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       BusCurCmd.dataindex,
+                                       BusCurCmd.count);
+                            BusCurCmd.dataindex = 0;
+                        }
+                        else
+                        {
+                            BusCurCmd.dataindex += 1;
+                        }
+                    }
+                }
 
                 switch (BusCurCmd.cmd)
                 {
@@ -833,15 +869,17 @@ void process_bus(Vtop * top)
                         break;
                     case Cmd::REG_WR_ARRAY:
                         BusState       = Bus::SELECT;
-                        BusCurCmd.data = *BusCurCmd.dataptr;
+                        BusCurCmd.data = BusCurCmd.dataptr[BusCurCmd.dataindex];
+
                         if (BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
                         {
-                            logonly_printf("[%8lu/%8lu] REG_WR_ARRAY(0x%02x %s, [%p]=0x%02x, %d/%d)%s\n",
+                            logonly_printf("[%8lu/%8lu] REG_WR_ARRAY(0x%02x %s, %p[%d]=0x%02x, %d/%d)%s\n",
                                            main_time / 2,
                                            BusCycle,
                                            BusCurCmd.regnum,
                                            vera_reg_name(BusCurCmd.regnum),
                                            BusCurCmd.dataptr,
+                                           BusCurCmd.dataindex,
                                            BusCurCmd.data,
                                            BusRepeatCount,
                                            BusCurCmd.count,
@@ -895,15 +933,6 @@ void process_bus(Vtop * top)
                         assert(false);
                         break;
                 }
-
-                if (BusRepeatCount < BusCurCmd.count)
-                {
-                    BusRepeatCount += 1;
-                    if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
-                    {
-                        BusCurCmd.dataptr++;
-                    }
-                }
                 break;
         }
 
@@ -926,11 +955,6 @@ int main(int argc, char ** argv)
     sigIntHandler.sa_flags = 0;
 
     sigaction(SIGINT, &sigIntHandler, NULL);
-
-    for (int i = 0; i < sizeof(inc_word) / 2; i++)
-    {
-        inc_word[i] = i;
-    }
 
     if ((logfile = fopen(LOGDIR "vera_vsim.log", "w")) == NULL)
     {

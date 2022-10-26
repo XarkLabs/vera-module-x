@@ -1,6 +1,6 @@
 #include <stdint.h>
 
-uint8_t iso_charset[] =
+const uint8_t iso_charset[2048] =
 {
 //
 //      ISO-8859-15        X16 Additions
