@@ -1,4 +1,4 @@
-# UPduino v3.x VERA for Xosera Project Makefile
+# UPduino v3.x VERA for VERA Project Makefile
 #
 # vim: set noet ts=8 sw=8
 #
@@ -84,7 +84,7 @@ YOSYS_OPTS := -e "no driver"
 
 # Yosys synthesis options
 # ("ultraplus" device, enable DSP inferrence, ABC9 logic optimization and explicitly set top module name)
-YOSYS_SYNTH_OPTS := -abc2 -device u -dsp -no-rw-check -top $(TOP)
+YOSYS_SYNTH_OPTS := -abc9 -device u -dsp -no-rw-check -top $(TOP)
 
 # Invokes yosys-config to find the proper path to the iCE40 simulation library
 TECH_LIB := $(shell $(YOSYS_CONFIG) --datdir/ice40/cells_sim.v)
@@ -104,7 +104,7 @@ DEFINES += -DXARK_UPDUINO
 endif
 
 # Note: Using -Os seems to provide the fastest compile+run simulation iteration time
-CFLAGS		:= -CFLAGS "-Os -std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
+CFLAGS := -CFLAGS "-Os -std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
 
 # Verilator tool
 VERILATOR := verilator
@@ -131,7 +131,7 @@ IVERILOG_OPTS := -g2012 -Wall -Wno-portbind -Wno-timescale -l$(TECH_LIB) -I$(INC
 NEXTPNR := nextpnr-ice40
 # nextpnr-ice40 options
 # (use "heap" placer)
-NEXTPNR_OPTS := --promote-logic --opt-timing --placer heap --timing-allow-fail
+NEXTPNR_OPTS := --randomize-seed --promote-logic --opt-timing --placer heap --timing-allow-fail
 
 # log output directory for tools (spammy, but useful detailed info)
 LOGS := logs

@@ -36,9 +36,9 @@ module top(
     output wire       audio_data
 `else
 
-//                         UPduino v3.0 pinout for Xosera
+//                         UPduino v3.0 pinout for VERA
 //
-//             [Xosera]       PCF  Pin#  _____  Pin#  PCF       [Xosera]
+//             [VERA]       PCF  Pin#  _____  Pin#  PCF       [VERA]
 //                                ------| USB |------
 //                          <GND> |  1   \___/   48 | spi_ssn   (16)
 //                          <VIO> |  2           47 | spi_sck   (15)
@@ -65,7 +65,7 @@ module top(
 //          [BUS_DATA6]   gpio_38 | 23           26 | gpio_46   [DV_DE]
 //          [BUS_DATA7]   gpio_28 | 24           25 | gpio_2    [DV_CLK]
 //                                -------------------
-// NOTE: Xosera assumes 12MHz OSC jumper is shorted, and R28 RGB LED jumper is cut (using RGB for input)
+// NOTE: VERA assumes 12MHz OSC jumper is shorted, and R28 RGB LED jumper is cut (using RGB for input)
 
     input  wire       gpio_20,  //  clk25,
 
@@ -103,7 +103,7 @@ module top(
     );
 
 `ifdef XARK_UPDUINO
-    // External bus interface for Xosera/UPduino
+    // External bus interface for VERA/UPduino
     wire        extbus_cs_n;   /* Chip select */
     assign      extbus_cs_n = ~(led_red == 1'b0);
     wire        extbus_rd_n;   /* Read strobe */
@@ -1210,6 +1210,7 @@ module top(
         .rd_addr_i(composer_display_data),
         .rd_data_o(palette_rgb_data));
 
+`ifndef XARK_UPDUINO
     //////////////////////////////////////////////////////////////////////////
     // Composite video
     //////////////////////////////////////////////////////////////////////////
@@ -1245,6 +1246,9 @@ module top(
         .rgb_g(video_rgb_g),
         .rgb_b(video_rgb_b),
         .rgb_sync_n(video_rgb_sync_n));
+`else
+    assign  composer_display_current_field = '0;
+`endif
 
     //////////////////////////////////////////////////////////////////////////
     // VGA video
@@ -1279,10 +1283,17 @@ module top(
     //////////////////////////////////////////////////////////////////////////
     // Video output selection
     //////////////////////////////////////////////////////////////////////////
+`ifndef XARK_UPDUINO
     assign next_frame   = video_output_mode_r[1] ? video_composite_next_frame         : video_vga_next_frame;
     assign next_line    = video_output_mode_r[1] ? video_composite_next_line          : video_vga_next_line;
     assign next_pixel   = video_output_mode_r[1] ? video_composite_display_next_pixel : video_vga_display_next_pixel;
     assign vblank_pulse = video_output_mode_r[1] ? video_composite_vblank_pulse       : video_vga_vblank_pulse;
+`else
+    assign next_frame   = video_vga_next_frame;
+    assign next_line    = video_vga_next_line;
+    assign next_pixel   = video_vga_display_next_pixel;
+    assign vblank_pulse = video_vga_vblank_pulse;
+`endif
 
     always @(posedge clk) case (video_output_mode_r)
         2'b01: begin
@@ -1293,6 +1304,7 @@ module top(
             vga_vsync <= video_vga_vsync;
         end
 
+`ifndef XARK_UPDUINO
         2'b10: begin
             vga_r     <= video_composite_luma[5:2];
             vga_g     <= {video_composite_luma[1:0], video_composite_chroma2[5:4]};
@@ -1308,6 +1320,7 @@ module top(
             vga_hsync <= video_rgb_sync_n;
             vga_vsync <= 0;
         end
+`endif
 
         default: begin
             vga_r     <= 0;

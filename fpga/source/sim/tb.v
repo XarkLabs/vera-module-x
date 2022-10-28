@@ -51,7 +51,7 @@ module tb();
         
         .spi_miso(1'b1));
 `else
-// NOTE: Xosera assumes 12MHz OSC jumper is shorted, and R28 RGB LED jumper is cut (using RGB for input)
+// NOTE: VERA assumes 12MHz OSC jumper is shorted, and R28 RGB LED jumper is cut (using RGB for input)
 
     top top(
         .gpio_20(sysclk),           //  clk25 (but 12 MHz),

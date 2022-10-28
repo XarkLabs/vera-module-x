@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include <vector>
+
 #include "vera_defs.h"
 
 #include "verilated.h"
@@ -30,7 +32,7 @@
 
 #define LOGDIR "../logs/"
 
-#define MAX_TRACE_FRAMES 3        // video frames to dump to VCD file (and then screen-shot and exit)
+#define MAX_TRACE_FRAMES 5        // video frames to dump to VCD file (and then screen-shot and exit)
 
 // Current simulation time (64-bit unsigned)
 vluint64_t main_time         = 0;
@@ -38,8 +40,39 @@ vluint64_t first_frame_start = 0;
 vluint64_t frame_start_time  = 0;
 
 volatile bool done;
-bool          sim_render = SDL_RENDER;
-bool          wait_close = false;
+bool          sim_render  = SDL_RENDER;
+bool          wait_close  = false;
+bool          do_trace    = true;
+const char *  replay_name = nullptr;
+
+#define MISC_VPB  0x01
+#define MISC_IO7  0x02
+#define MISC_IRQB 0x04
+#define MISC_NMIB 0x08
+#define MISC_SYNC 0x10
+#define MISC_RESB 0x20
+#define MISC_PHI2 0x40
+#define MISC_RWB  0x80
+
+struct CSVSignals
+{
+    uint64_t tc;
+    uint16_t addr;
+    uint8_t  data;
+    uint8_t  misc;
+};
+
+struct ReplaySignals
+{
+    uint64_t tc;
+    uint8_t  reg;
+    uint8_t  data;
+    uint8_t  rwb;
+};
+
+std::vector<CSVSignals>    csv_data;
+std::vector<ReplaySignals> replay_data;
+char                       csv_line[8192];
 
 bool vsync_detect = false;
 bool hsync_detect = false;
@@ -118,23 +151,6 @@ void set_bus(Vtop * top, bool cs_n, bool rd_n, bool wr_n, uint8_t addr)
     top->led_blue = addr & 0x01 ? 1 : 0;
 }
 
-void set_data(Vtop * top, uint8_t v)
-{
-    top->gpio_28 = (v & 0x80) ? 1 : 0;
-    top->gpio_38 = (v & 0x40) ? 1 : 0;
-    top->gpio_42 = (v & 0x20) ? 1 : 0;
-    top->gpio_36 = (v & 0x10) ? 1 : 0;
-    top->gpio_43 = (v & 0x08) ? 1 : 0;
-    top->gpio_34 = (v & 0x04) ? 1 : 0;
-    top->gpio_37 = (v & 0x02) ? 1 : 0;
-    top->gpio_31 = (v & 0x01) ? 1 : 0;
-}
-
-uint8_t get_data(Vtop * top)
-{
-    return (top->gpio_28 << 7) | (top->gpio_38 << 6) | (top->gpio_42 << 5) | (top->gpio_36 << 4) | (top->gpio_43 << 3) |
-           (top->gpio_34 << 2) | (top->gpio_37 << 1) | (top->gpio_31 << 0);
-}
 
 #else
 
@@ -158,6 +174,8 @@ void set_bus(Vtop * top, bool cs_n, bool rd_n, bool wr_n, uint8_t addr)
     top->extbus_a = addr & 0x1f;
 }
 
+#endif
+
 void set_data(Vtop * top, uint8_t v)
 {
     top->extbus_d_i = v;
@@ -167,8 +185,6 @@ uint8_t get_data(Vtop * top)
 {
     return top->extbus_d_o;
 }
-
-#endif
 
 enum struct Bus
 {
@@ -185,6 +201,7 @@ enum struct Cmd
     REG_WR_VALUE,
     REG_WR_ARRAY,
     REG_WR_FILE,
+    REG_WR_REPLAY,
     REG_RD,
     REG_RD_FILE
 };
@@ -192,12 +209,12 @@ enum struct Cmd
 struct BusCommand
 {
 
-    Cmd          cmd;
-    uint8_t      regnum;
-    uint8_t      data;
+    Cmd             cmd;
+    uint8_t         regnum;
+    uint8_t         data;
     const uint8_t * dataptr;
-    int          count;
-    int          dataindex;
+    int             count;
+    int             dataindex;
 };
 
 #define DELAY(delay)                                                                                                   \
@@ -210,11 +227,6 @@ struct BusCommand
         Cmd::REG_WR, (reg), (value), nullptr, 0, 0                                                                     \
     }
 
-#define REG_RD(reg)                                                                                                    \
-    {                                                                                                                  \
-        Cmd::REG_RD, (reg), 0, nullptr, 0, 0                                                                           \
-    }
-
 #define REG_WR_VALUE(reg, value, count)                                                                                \
     {                                                                                                                  \
         Cmd::REG_WR_VALUE, (reg), (value), 0, (count), 0                                                               \
@@ -222,17 +234,27 @@ struct BusCommand
 
 #define REG_WR_ARRAY(reg, array, count)                                                                                \
     {                                                                                                                  \
-        Cmd::REG_WR_ARRAY, (reg), 0, (array), (count), 0                                 \
+        Cmd::REG_WR_ARRAY, (reg), 0, (array), (count), 0                                                               \
     }
 
 #define REG_WR_FILE(reg, file, count)                                                                                  \
     {                                                                                                                  \
-        Cmd::REG_WR_FILE, (reg), 0, reinterpret_cast<const uint8_t *>(file), (count), 0                                                                 \
+        Cmd::REG_WR_FILE, (reg), 0, reinterpret_cast<const uint8_t *>(file), (count), 0                                \
+    }
+
+#define REG_WR_REPLAY()                                                                                                \
+    {                                                                                                                  \
+        Cmd::REG_WR_REPLAY, 0, 0, 0, 0, 0                                                                              \
+    }
+
+#define REG_RD(reg)                                                                                                    \
+    {                                                                                                                  \
+        Cmd::REG_RD, (reg), 0, nullptr, 0, 0                                                                           \
     }
 
 #define REG_RD_FILE(reg, file, count)                                                                                  \
     {                                                                                                                  \
-        Cmd::REG_RD_FILE, (reg), 0, reinterpret_cast<const uint8_t *>(file), (count), 0                                                                 \
+        Cmd::REG_RD_FILE, (reg), 0, reinterpret_cast<const uint8_t *>(file), (count), 0                                \
     }
 
 #define DONE()                                                                                                         \
@@ -245,6 +267,8 @@ BusCommand TestCommands[] = {
 
     DELAY(500),        // delay cycles
 
+#if 0
+
     REG_WR(VERA_CTRL, 0x00),
 
     REG_WR(VERA_ADDR_L, 0x00),                      // addr $hmm00
@@ -252,6 +276,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_H, 0x10),                      // addr $0mmll incr +1
     REG_WR_VALUE(VERA_DATA0, 0x00, 0x1F000),        // clear VRAM
     DELAY(500),                                     // delay cycles
+#endif
 
     // screen_init:
     REG_WR(VERA_CTRL, 0x00),
@@ -268,9 +293,8 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_L, VERA_CHARSET_BASE & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, (VERA_CHARSET_BASE >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | ((VERA_CHARSET_BASE >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR_ARRAY(VERA_DATA0, iso_charset, sizeof (iso_charset)),
+    REG_WR_ARRAY(VERA_DATA0, iso_charset, sizeof(iso_charset)),
 
-    DELAY(500),        // delay cycles
     // 	; Layer 1 configuration
     // 	lda #((1<<6)|(2<<4)|(0<<0))
     // 	sta VERA_L1_CONFIG
@@ -349,6 +373,8 @@ BusCommand TestCommands[] = {
     // 	sta cscrmd      ; force setting color on first mode change
     // 	rts
 
+    DELAY(500),        // delay cycles
+
     // color 0 = blue
     REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
@@ -385,7 +411,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_DATA0, 0b10000101),
     REG_WR(VERA_DATA0, 0b10000000),
     REG_WR(VERA_DATA0, 0b11111111),
-    
+
     REG_WR(VERA_ADDR_L, (20 * 80 + 9) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((20 * 80 + 9) >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0xc0 | (((20 * 80 + 9) >> 16) & 0x01)),        // addr $0mmll incr +80
@@ -401,7 +427,7 @@ BusCommand TestCommands[] = {
 
     REG_WR(VERA_ADDR_L, (VERA_CHARMAP_BASE + (2 * 128) + 2) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((VERA_CHARMAP_BASE + (2 * 128) + 2) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_CHARMAP_BASE  + (2 * 128) + 2) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_CHARMAP_BASE + (2 * 128) + 2) >> 16) & 0x01)),        // addr $0mmll incr +1
 
     REG_WR(VERA_DATA0, 'V'),
     REG_WR(VERA_DATA0, 0x01),
@@ -435,7 +461,7 @@ BusCommand TestCommands[] = {
 //
 #if 0
     DELAY(500000),        // delay cycles
- 
+
     REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
@@ -630,12 +656,16 @@ BusCommand TestCommands[] = {
 
 #endif
 
+    DELAY(500000),        // delay cycles
+
+    REG_WR_REPLAY(),
+
     DELAY(50000),        // delay cycles
 
     DONE()        // ending command
 };
 
-bool bus_spam     = false;
+bool bus_spam     = true;
 int  cmd_rep_spam = 4;
 
 const char * vera_reg_name(int r)
@@ -729,19 +759,25 @@ void process_bus(Vtop * top)
     {
         BusFraction -= 1.0;
 
-        bool rd_n = (BusCurCmd.cmd == Cmd::REG_RD || BusCurCmd.cmd == Cmd::REG_RD_FILE) ? 0 : 1;
-        bool wr_n =
-            (BusCurCmd.cmd == Cmd::REG_WR || BusCurCmd.cmd == Cmd::REG_WR_VALUE || BusCurCmd.cmd == Cmd::REG_WR_ARRAY || BusCurCmd.cmd == Cmd::REG_WR_FILE)
-                ? 0
-                : 1;
-
         if (BusState == Bus::SELECT)
         {
             if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
             {
-                BusCurCmd.data = (uint8_t)BusCurCmd.dataptr[BusCurCmd.dataindex];
+                BusCurCmd.data = BusCurCmd.dataptr[BusCurCmd.dataindex];
+            }
+            else if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+            {
+                BusCurCmd.regnum = replay_data[BusCurCmd.dataindex].reg;
+                BusCurCmd.data   = replay_data[BusCurCmd.dataindex].data;
             }
         }
+
+        bool rd_n = (BusCurCmd.cmd == Cmd::REG_RD || BusCurCmd.cmd == Cmd::REG_RD_FILE) ? 0 : 1;
+        bool wr_n =
+            (BusCurCmd.cmd == Cmd::REG_WR || BusCurCmd.cmd == Cmd::REG_WR_VALUE || BusCurCmd.cmd == Cmd::REG_WR_ARRAY ||
+             BusCurCmd.cmd == Cmd::REG_WR_FILE || BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+                ? 0
+                : 1;
 
         switch (BusState)
         {
@@ -792,6 +828,10 @@ void process_bus(Vtop * top)
                     {
                         BusCurCmd      = BusCmdPtr[BusCmdIndex++];
                         BusRepeatCount = 0;
+                        if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+                        {
+                            BusCurCmd.count = replay_data.size();
+                        }
                     }
                     else
                     {
@@ -807,6 +847,22 @@ void process_bus(Vtop * top)
                         if (BusCurCmd.dataindex >= BusCurCmd.count)
                         {
                             log_printf("[%8lu/%8lu] REG_WR_ARRAY Array index overflow, index %d of array [%d]\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       BusCurCmd.dataindex,
+                                       BusCurCmd.count);
+                            BusCurCmd.dataindex = 0;
+                        }
+                        else
+                        {
+                            BusCurCmd.dataindex += 1;
+                        }
+                    }
+                    else if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+                    {
+                        if (BusCurCmd.dataindex >= BusCurCmd.count)
+                        {
+                            log_printf("[%8lu/%8lu] REG_WR_REPLAY Array index overflow, index %d of array [%d]\n",
                                        main_time / 2,
                                        BusCycle,
                                        BusCurCmd.dataindex,
@@ -840,14 +896,6 @@ void process_bus(Vtop * top)
                                        BusCurCmd.regnum,
                                        vera_reg_name(BusCurCmd.regnum),
                                        BusCurCmd.data);
-                        break;
-                    case Cmd::REG_RD:
-                        BusState = Bus::SELECT;
-                        logonly_printf("[%8lu/%8lu] REG_RD(0x%02x %s)\n",
-                                       main_time / 2,
-                                       BusCycle,
-                                       BusCurCmd.regnum,
-                                       vera_reg_name(BusCurCmd.regnum));
                         break;
                     case Cmd::REG_WR_VALUE:
                         BusState = Bus::SELECT;
@@ -906,6 +954,43 @@ void process_bus(Vtop * top)
                                                ? " ..."
                                                : "");
                         }
+                        break;
+                    case Cmd::REG_WR_REPLAY:
+                        BusState = Bus::SELECT;
+                        if (BusCurCmd.dataindex < replay_data.size())
+                        {
+                            BusCurCmd.regnum = replay_data.at(BusCurCmd.dataindex).reg;
+                            BusCurCmd.data   = replay_data.at(BusCurCmd.dataindex).data;
+                        }
+                        else
+                        {
+                            log_printf("fuckup %d vs %d\n", BusCurCmd.dataindex, replay_data.size());
+                        }
+
+                        if (true) //(BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
+                        {
+                            logonly_printf("[%8lu/%8lu] REG_WR_REPLAY(0x%02x %s, replay[%d]=0x%02x, %d/%d)%s\n",
+                                           main_time / 2,
+                                           BusCycle,
+                                           BusCurCmd.regnum,
+                                           vera_reg_name(BusCurCmd.regnum),
+                                           BusCurCmd.dataindex,
+                                           BusCurCmd.data,
+                                           BusRepeatCount,
+                                           BusCurCmd.count,
+                                           BusRepeatCount >= cmd_rep_spam - 1 &&
+                                                   BusRepeatCount < BusCurCmd.count - cmd_rep_spam
+                                               ? " ..."
+                                               : "");
+                        }
+                        break;
+                    case Cmd::REG_RD:
+                        BusState = Bus::SELECT;
+                        logonly_printf("[%8lu/%8lu] REG_RD(0x%02x %s)\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       BusCurCmd.regnum,
+                                       vera_reg_name(BusCurCmd.regnum));
                         break;
                     case Cmd::REG_RD_FILE:
                         BusState = Bus::SELECT;
@@ -986,6 +1071,20 @@ int main(int argc, char ** argv)
         {
             wait_close = true;
         }
+        else if (strcmp(argv[nextarg] + 1, "t") == 0)
+        {
+            do_trace = true;
+        }
+        else if (strcmp(argv[nextarg] + 1, "r") == 0)
+        {
+            nextarg += 1;
+            if (nextarg >= argc)
+            {
+                printf("-r needs filename\n");
+                exit(EXIT_FAILURE);
+            }
+            replay_name = argv[nextarg];
+        }
         // if (strcmp(argv[nextarg] + 1, "u") == 0)
         // {
         //     nextarg += 1;
@@ -1001,13 +1100,175 @@ int main(int argc, char ** argv)
         nextarg += 1;
     }
 
+    if (replay_name)
+    {
+        log_printf("Reading signal replay file: \"%s\"...\n", replay_name);
+        FILE * sfp = fopen(replay_name, "r");
+
+        if (sfp == nullptr)
+        {
+            perror("Error opening");
+            exit(EXIT_FAILURE);
+        }
+        // super cheese scanning...
+
+        if (fgets(csv_line, sizeof(csv_line) - 1, sfp) == nullptr)
+        {
+            fprintf(stderr, "error parsing names: %s", csv_line);
+            exit(EXIT_FAILURE);
+        }
+
+        printf("Labels: %s", csv_line);
+
+        while (!feof(sfp) && fgets(csv_line, sizeof(csv_line) - 1, sfp) != nullptr && !done)
+        {
+            char *   s    = csv_line;
+            char *   se   = nullptr;
+            int64_t  v    = 0;
+            uint16_t addr = 0;
+            uint8_t  data = 0;
+            uint8_t  misc = 0;
+
+            CSVSignals csv = {};
+
+            bool neg = (s[0] == '-');
+
+            if (strchr(s, '.'))
+            {
+                s = strchr(s, '.') + 1;
+            }
+
+            se = nullptr;
+            v  = 0;
+            if (v = strtoll(s, &se, 10), se < s)
+            {
+                fprintf(stderr, "error parsing time: %s", s);
+                exit(EXIT_FAILURE);
+            }
+            s      = se;
+            csv.tc = neg ? -v : v;
+
+            for (int i = 0; i < 16; i++)
+            {
+                while (*s == ',' || *s == ' ')
+                {
+                    s++;
+                }
+                se = nullptr;
+                v  = 0;
+                if (v = strtoull(s, &se, 10), se < s)
+                {
+                    fprintf(stderr, "error parsing addr: %s", s);
+                    exit(EXIT_FAILURE);
+                }
+                s    = se;
+                addr = (addr >> 1) | (v ? 0x8000 : 0);
+            }
+
+            csv.addr = addr;
+
+            for (int i = 0; i < 8; i++)
+            {
+                while (*s == ',' || *s == ' ')
+                {
+                    s++;
+                }
+                se = nullptr;
+                v  = 0;
+                if (v = strtoull(s, &se, 10), se < s)
+                {
+                    fprintf(stderr, "error parsing data: %s", s);
+                    exit(EXIT_FAILURE);
+                }
+                s    = se;
+                data = (data >> 1) | (v ? 0x80 : 0);
+            }
+            csv.data = data;
+
+            for (int i = 0; i < 8; i++)
+            {
+                while (*s == ',' || *s == ' ')
+                {
+                    s++;
+                }
+                se = nullptr;
+                v  = 0;
+                if (v = strtoull(s, &se, 10), se < s)
+                {
+                    fprintf(stderr, "error parsing misc: %s", s);
+                    exit(EXIT_FAILURE);
+                }
+                s    = se;
+                misc = (misc >> 1) | (v ? 0x80 : 0);
+            }
+            csv.misc = misc;
+
+            csv_data.push_back(csv);
+        }
+
+        bool last_phi2 = false;
+        for (auto v : csv_data)
+        {
+            bool phi2 = (v.misc & MISC_PHI2);
+            if ((v.addr & ~0x1f) == 0x9f20)
+            {
+                // printf("%09lld: %04x %02x %s %s%s %s %s %s %s %s\n",
+                //        v.tc,
+                //        v.addr,
+                //        v.data,
+                //        v.misc & MISC_VPB ? "VPB " : "    ",
+                //        v.misc & MISC_IO7 ? "IO7 " : "    ",
+                //        v.misc & MISC_IRQB ? "IRQB" : "    ",
+                //        v.misc & MISC_NMIB ? "NMIB" : "    ",
+                //        v.misc & MISC_SYNC ? "SYNC" : "    ",
+                //        v.misc & MISC_RESB ? "RESB" : "    ",
+                //        v.misc & MISC_PHI2 ? "PHI2" : "    ",
+                //        v.misc & MISC_RWB ? "RD  " : "WR  ");
+
+                if (!phi2 && last_phi2)
+                {
+                    if (!(v.misc & MISC_RWB))
+                    {
+                        ReplaySignals rs = {};
+                        rs.tc            = v.tc;
+                        rs.reg           = v.addr & 0x1f;
+                        rs.data          = v.data;
+                        rs.rwb           = (v.misc & MISC_RWB) ? 1 : 0;
+                        replay_data.push_back(rs);
+                    }
+                }
+            }
+            last_phi2 = phi2;
+        }
+
+        /*
+            for (auto v : replay_data)
+            {
+                printf("%09lld: %02x %s %s 0x%02x\n", v.tc, v.reg, vera_reg_name(v.reg), v.rwb ? "<=" : "=>", v.data);
+            }
+        */
+
+        if (replay_data.size() < 1)
+        {
+            fprintf(stderr, "No replay data\n");
+            exit(EXIT_FAILURE);
+        }
+        else
+        {
+            log_printf("Parsed %d replay VERA writes\n", replay_data.size());
+        }
+
+        fclose(sfp);
+    }
+
     Verilated::commandArgs(argc, argv);
 
-#if VM_TRACE
-    Verilated::traceEverOn(true);
-#endif
+    if (do_trace)
+    {
+        Verilated::traceEverOn(true);
+    }
 
-    Vtop * top = new Vtop;
+    Vtop *          top = new Vtop;
 
 #if SDL_RENDER
     SDL_Renderer * renderer = nullptr;
@@ -1050,15 +1311,16 @@ int main(int argc, char ** argv)
     int  vsync_count  = 0;
     bool image_loaded = false;
 
-#if VM_TRACE
-    const auto trace_path = LOGDIR "vera_vsim.fst";
-    logonly_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
     VerilatedFstC * tfp = new VerilatedFstC;
 
-    top->trace(tfp, 99);        // trace to heirarchal depth of 99
-    tfp->open(trace_path);
-#endif
+    if (do_trace)
+    {
+        const auto trace_path = LOGDIR "vera_vsim.fst";
+        logonly_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
 
+        top->trace(tfp, 99);        // trace to heirarchal depth of 99
+        tfp->open(trace_path);
+    }
     bool last_hsync = false;
     bool last_vsync = false;
     bool hsync      = false;
@@ -1070,19 +1332,21 @@ int main(int argc, char ** argv)
         TOP_clk = 1;        // clock rising
         top->eval();
 
-#if VM_TRACE
-        if (frame_num <= MAX_TRACE_FRAMES)
-            tfp->dump(main_time);
-#endif
+        if (do_trace)
+        {
+            if (frame_num <= MAX_TRACE_FRAMES)
+                tfp->dump(main_time);
+        }
         main_time++;
 
         TOP_clk = 0;        // clock falling
         top->eval();
 
-#if VM_TRACE
-        if (frame_num <= MAX_TRACE_FRAMES)
-            tfp->dump(main_time);
-#endif
+        if (do_trace)
+        {
+            if (frame_num <= MAX_TRACE_FRAMES)
+                tfp->dump(main_time);
+        }
         main_time++;
 
         last_hsync = hsync;
@@ -1220,10 +1484,10 @@ int main(int argc, char ** argv)
 
     top->final();
 
-#if VM_TRACE
-    tfp->close();
-#endif
-
+    if (do_trace)
+    {
+        tfp->close();
+    }
     log_printf("Simulation ended after %d frames, %lu pixel clock ticks (%.04f milliseconds)\n",
                frame_num,
                (main_time / 2),

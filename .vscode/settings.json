@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.sv": "systemverilog",
+        "*.asm": "vasmmot",
+        "vector": "cpp"
+    }
+}

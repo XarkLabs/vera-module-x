@@ -1,3 +1,4 @@
 .DS_Store
-fpga/out/*
-fpga/logs/*
+fpga/out/**
+fpga/logs/**
+
