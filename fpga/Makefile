@@ -135,6 +135,7 @@ NEXTPNR_OPTS := --randomize-seed --promote-logic --opt-timing --placer heap --ti
 
 # log output directory for tools (spammy, but useful detailed info)
 LOGS := logs
+SIM_LOGS := source/sim/logs
 
 # get full path to current top dir
 current_dir = $(shell pwd)
@@ -183,11 +184,12 @@ irun: $(OUTDIR)/$(TBOUTNAME) $(MAKEFILE_LIST)
 
 # build native simulation executable
 vsim: $(VLT_CONFIG) source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
+	@mkdir -p $(SIM_LOGS)
 	@echo === Completed building Verilator simulation, use \"make vrun\" to run.
 
 # run Verilator to build and run native simulation executable
 vrun: source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
-	@mkdir -p $(LOGS)
+	@mkdir -p $(SIM_LOGS)
 	cd source && sim/obj_dir/V$(VTOP) $(VRUN_TESTDATA)
 
 # use Icarus Verilog to build vvp simulation executable

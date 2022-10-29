@@ -1,4 +1,5 @@
 .DS_Store
 fpga/out/**
 fpga/logs/**
+fpga/source/sim/logs/**
 

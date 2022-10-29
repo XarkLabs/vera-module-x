@@ -30,9 +30,9 @@
 #define SDL_RENDER 0
 #endif
 
-#define LOGDIR "../logs/"
+#define LOGDIR "sim/logs/"
 
-#define MAX_TRACE_FRAMES 5        // video frames to dump to VCD file (and then screen-shot and exit)
+#define MAX_TRACE_FRAMES 60 * 5        // video frames to dump to VCD file (and then screen-shot and exit)
 
 // Current simulation time (64-bit unsigned)
 vluint64_t main_time         = 0;
@@ -40,10 +40,15 @@ vluint64_t first_frame_start = 0;
 vluint64_t frame_start_time  = 0;
 
 volatile bool done;
-bool          sim_render  = SDL_RENDER;
-bool          wait_close  = false;
-bool          do_trace    = true;
-const char *  replay_name = nullptr;
+bool          sim_render    = SDL_RENDER;
+bool          wait_close    = false;
+bool          do_trace      = false;
+const char *  replay_name   = nullptr;
+const char *  videolog_name = nullptr;
+bool          bus_spam      = false;
+int           cmd_rep_spam  = 8;
+bool          fast_mode     = false;
+bool          shot_all      = true;        // screenshot all frames
 
 #define MISC_VPB  0x01
 #define MISC_IO7  0x02
@@ -267,7 +272,7 @@ BusCommand TestCommands[] = {
 
     DELAY(500),        // delay cycles
 
-#if 0
+#if 0        // clear VRAM
 
     REG_WR(VERA_CTRL, 0x00),
 
@@ -278,6 +283,7 @@ BusCommand TestCommands[] = {
     DELAY(500),                                     // delay cycles
 #endif
 
+#if 0
     // screen_init:
     REG_WR(VERA_CTRL, 0x00),
     // 	lda #2
@@ -457,6 +463,8 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_DATA0, 0x51),
     REG_WR(VERA_DATA0, '!'),
     REG_WR(VERA_DATA0, 0x51),
+
+#endif
 
 //
 #if 0
@@ -656,17 +664,13 @@ BusCommand TestCommands[] = {
 
 #endif
 
-    DELAY(500000),        // delay cycles
-
     REG_WR_REPLAY(),
 
-    DELAY(50000),        // delay cycles
+    DELAY(5000),        // delay cycles
 
     DONE()        // ending command
 };
 
-bool bus_spam     = true;
-int  cmd_rep_spam = 4;
 
 const char * vera_reg_name(int r)
 {
@@ -744,6 +748,7 @@ const char * vera_reg_name(int r)
 const float  BusSpeed       = 8.0 / PIXEL_CLOCK_MHZ;
 float        BusFraction    = 0.0;
 uint64_t     BusCycle       = 0;
+uint64_t     CommandWait    = 0;
 Bus          BusState       = Bus::IDLE;
 BusCommand * BusCmdPtr      = TestCommands;
 uint32_t     BusNumCmds     = NUM_ELEMENTS(TestCommands);
@@ -794,6 +799,11 @@ void process_bus(Vtop * top)
                                    wr_n ? 0xff : BusCurCmd.data,
                                    wr_n ? "" : " WRITE");
                 }
+                if (BusCurCmd.regnum == VERA_AUDIO_CTRL)
+                {
+                    fast_mode = false;
+                    BusCycle  = CommandWait;
+                }
                 set_bus(top, 0, rd_n, wr_n, BusCurCmd.regnum);
                 set_data(top, BusCurCmd.data);
                 BusState = Bus::DESELECT;
@@ -822,6 +832,14 @@ void process_bus(Vtop * top)
             case Bus::IDLE:
                 set_bus(top, 1, 1, 1, BusCurCmd.regnum);
 
+                if (!fast_mode && CommandWait != 0 && BusCycle < CommandWait)
+                {
+                    //                    logonly_printf(
+                    //                        "[%8lu/%8lu] ... waiting %llu < %llu\n", main_time / 2, BusCycle,
+                    //                        BusCycle, CommandWait);
+                    break;
+                }
+
                 if (BusRepeatCount >= BusCurCmd.count)
                 {
                     if (BusCmdPtr != nullptr && BusCmdIndex < BusNumCmds)
@@ -830,7 +848,7 @@ void process_bus(Vtop * top)
                         BusRepeatCount = 0;
                         if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
                         {
-                            BusCurCmd.count = replay_data.size();
+                            BusCurCmd.count = replay_data.size() - 1;
                         }
                     }
                     else
@@ -862,11 +880,14 @@ void process_bus(Vtop * top)
                     {
                         if (BusCurCmd.dataindex >= BusCurCmd.count)
                         {
-                            log_printf("[%8lu/%8lu] REG_WR_REPLAY Array index overflow, index %d of array [%d]\n",
-                                       main_time / 2,
-                                       BusCycle,
-                                       BusCurCmd.dataindex,
-                                       BusCurCmd.count);
+                            if (BusCurCmd.count > 0)
+                            {
+                                log_printf("[%8lu/%8lu] REG_WR_REPLAY Array index overflow, index %d of array [%d]\n",
+                                           main_time / 2,
+                                           BusCycle,
+                                           BusCurCmd.dataindex,
+                                           BusCurCmd.count);
+                            }
                             BusCurCmd.dataindex = 0;
                         }
                         else
@@ -961,13 +982,10 @@ void process_bus(Vtop * top)
                         {
                             BusCurCmd.regnum = replay_data.at(BusCurCmd.dataindex).reg;
                             BusCurCmd.data   = replay_data.at(BusCurCmd.dataindex).data;
-                        }
-                        else
-                        {
-                            log_printf("fuckup %d vs %d\n", BusCurCmd.dataindex, replay_data.size());
+                            CommandWait      = replay_data.at(BusCurCmd.dataindex).tc;
                         }
 
-                        if (true) //(BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
+                        if (true || BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
                         {
                             logonly_printf("[%8lu/%8lu] REG_WR_REPLAY(0x%02x %s, replay[%d]=0x%02x, %d/%d)%s\n",
                                            main_time / 2,
@@ -1007,6 +1025,7 @@ void process_bus(Vtop * top)
                         if (BusCmdPtr)
                         {
                             logonly_printf("[%8lu/%8lu] DONE\n", main_time / 2, BusCycle);
+                            done = true;
                         }
                         BusCmdPtr   = nullptr;
                         BusCmdIndex = 0;
@@ -1024,6 +1043,224 @@ void process_bus(Vtop * top)
         BusCycle++;
     }
 }
+
+// wav recording functions adapted from:
+//  Commander X16 Emulator
+//  Copyright (c) 2022 Stephen Horn
+//  All rights reserved. License: 2-clause BSD
+
+#if 1
+#pragma pack(push, 1)
+typedef struct
+{
+    char     chunk_id[4];
+    uint32_t size;
+    char     wave_id[4];
+} riff_chunk;
+
+typedef struct
+{
+    char     chunk_id[4];
+    uint32_t size;
+    uint16_t format_tag;
+    uint16_t channels;
+    uint32_t samples_per_sec;
+    uint32_t bytes_per_sec;
+    uint16_t block_align;
+    uint16_t bits_per_sample;
+} fmt_chunk;
+
+typedef struct
+{
+    char     chunk_id[4];
+    uint32_t size;
+} data_chunk;
+
+typedef struct
+{
+    riff_chunk riff;
+    fmt_chunk  fmt;
+    data_chunk data;
+} file_header;
+#pragma pack(pop)
+
+FILE *         wav_file     = NULL;
+const uint32_t sample_bits  = 16;
+const uint32_t sample_bytes = 3;
+file_header    wav_header;
+uint32_t       wav_samples_written = 0;
+
+static void wav_init_file_header(file_header * header)
+{
+    header->riff.chunk_id[0]    = 'R';
+    header->riff.chunk_id[1]    = 'I';
+    header->riff.chunk_id[2]    = 'F';
+    header->riff.chunk_id[3]    = 'F';
+    header->riff.size           = 4;
+    header->riff.wave_id[0]     = 'W';
+    header->riff.wave_id[1]     = 'A';
+    header->riff.wave_id[2]     = 'V';
+    header->riff.wave_id[3]     = 'E';
+    header->fmt.chunk_id[0]     = 'f';
+    header->fmt.chunk_id[1]     = 'm';
+    header->fmt.chunk_id[2]     = 't';
+    header->fmt.chunk_id[3]     = ' ';
+    header->fmt.size            = sample_bits;
+    header->fmt.format_tag      = 0x0001;        // WAVE_FORMAT_PCM
+    header->fmt.channels        = 2;
+    header->fmt.samples_per_sec = 0;
+    header->fmt.bytes_per_sec   = 0;
+    header->fmt.block_align     = 0;
+    header->fmt.bits_per_sample = sample_bits * 2;
+    header->data.chunk_id[0]    = 'd';
+    header->data.chunk_id[1]    = 'a';
+    header->data.chunk_id[2]    = 't';
+    header->data.chunk_id[3]    = 'a';
+    header->data.size           = 0;
+}
+
+void wav_update_sizes()
+{
+    wav_header.data.size = sample_bits * wav_header.fmt.channels * wav_samples_written;
+    wav_header.riff.size = 4 + sizeof(fmt_chunk) + sizeof(data_chunk) + (wav_header.data.size);
+}
+
+void wav_begin(const char * path, int32_t sample_rate)
+{
+    wav_file = fopen(path, "wb");
+    if (wav_file)
+    {
+        wav_init_file_header(&wav_header);
+        wav_header.fmt.samples_per_sec = sample_rate;
+        wav_header.fmt.bytes_per_sec   = sample_rate * sample_bytes * wav_header.fmt.channels;
+        wav_header.fmt.block_align     = sample_bytes * wav_header.fmt.channels;
+        wav_header.fmt.bits_per_sample = (sample_bytes) << 3;
+
+        const size_t written = fwrite(&wav_header, sizeof(file_header), 1, wav_file);
+        if (written == 0)
+        {
+            fclose(wav_file);
+            wav_file = NULL;
+        }
+    }
+}
+
+void wav_end()
+{
+    if (wav_file != NULL)
+    {
+        wav_update_sizes();
+        fseek(wav_file, 0, SEEK_SET);
+        fwrite(&wav_header, sizeof(file_header), 1, wav_file);
+        fclose(wav_file);
+        wav_file = NULL;
+    }
+}
+
+void wav_add(const void * samples, const int num_samples)
+{
+    if (wav_file)
+    {
+        const size_t bytes   = sample_bytes * 2 * num_samples;
+        const size_t written = fwrite(samples, bytes, 1, wav_file);
+        if (written == 0)
+        {
+            fclose(wav_file);
+            wav_file = NULL;
+        }
+        else
+        {
+            wav_samples_written += num_samples;
+        }
+    }
+}
+
+// end wav functions
+
+uint32_t left_audio_word_save;
+uint32_t left_audio_word;
+uint32_t right_audio_word;
+bool     last_bclk     = false;
+bool     last_ws       = false;
+int      i2s_bit_count = 0;
+bool     noise         = false;
+
+// decode i2s to sample values for wav
+void audio_i2s(bool bclk, bool ws, bool sd)
+{
+    if (!last_bclk && bclk)
+    {
+        //        printf("data bclk=%s, ws=%s, sd=%s %d\n", bclk ? "HI" : "lo", ws ? "HI" : "lo", sd ? "HI" : "lo",
+        //        i2s_bit_count);
+        if (!noise && sd)
+        {
+            noise = true;
+            printf("Recording VERA audio output to \"%s\"\n", LOGDIR "vsim_audio_out.wav");
+            wav_begin(LOGDIR "vsim_audio_out.wav", 48828);
+        }
+
+        if (i2s_bit_count < 25)
+        {
+            if (ws)
+            {
+                right_audio_word <<= 1;
+                right_audio_word |= (sd ? 1 : 0);
+            }
+            else
+            {
+                left_audio_word <<= 1;
+                left_audio_word |= (sd ? 1 : 0);
+            }
+        }
+        i2s_bit_count++;
+
+        if (ws != last_ws)
+        {
+            if (ws)
+            {
+                if (right_audio_word & 0x400000)
+                {
+                    right_audio_word |= ~0x7fffff;
+                }
+                if (right_audio_word)
+                {
+                    //                    printf("R:%08x %d\n", right_audio_word, (int32_t)right_audio_word);
+                }
+
+                uint8_t sample[6] = {};
+
+                sample[0] = (left_audio_word_save >> 0) & 0xff;
+                sample[1] = (left_audio_word_save >> 8) & 0xff;
+                sample[2] = (left_audio_word_save >> 16) & 0xff;
+                sample[3] = (right_audio_word >> 0) & 0xff;
+                sample[4] = (right_audio_word >> 8) & 0xff;
+                sample[5] = (right_audio_word >> 16) & 0xff;
+
+                wav_add(sample, 1);
+
+                right_audio_word = 0;
+            }
+            else
+            {
+                if (left_audio_word & 0x400000)
+                {
+                    left_audio_word |= ~0x7fffff;
+                }
+                if (left_audio_word)
+                {
+                    //                  printf("L:%08x %d ", left_audio_word, (int32_t)left_audio_word);
+                }
+                left_audio_word_save = left_audio_word;
+                left_audio_word      = 0;
+            }
+            i2s_bit_count = 0;
+            last_ws       = ws;
+        }
+    }
+    last_bclk = bclk;
+}
+
+#endif
 
 #ifdef XARK_UPDUINO
 const char design_name[] = "VERA-UPduino";
@@ -1084,6 +1321,16 @@ int main(int argc, char ** argv)
                 exit(EXIT_FAILURE);
             }
             replay_name = argv[nextarg];
+        }
+        else if (strcmp(argv[nextarg] + 1, "v") == 0)
+        {
+            nextarg += 1;
+            if (nextarg >= argc)
+            {
+                printf("-v needs filename\n");
+                exit(EXIT_FAILURE);
+            }
+            videolog_name = argv[nextarg];
         }
         // if (strcmp(argv[nextarg] + 1, "u") == 0)
         // {
@@ -1240,7 +1487,6 @@ int main(int argc, char ** argv)
             }
             last_phi2 = phi2;
         }
-
         /*
             for (auto v : replay_data)
             {
@@ -1248,17 +1494,91 @@ int main(int argc, char ** argv)
             }
         */
 
-        if (replay_data.size() < 1)
+        fclose(sfp);
+    }
+    else if (videolog_name)
+    {
+        log_printf("Reading video log file: \"%s\"...\n", videolog_name);
+        FILE * vfp = fopen(videolog_name, "r");
+
+        if (vfp == nullptr)
         {
-            fprintf(stderr, "No replay data\n");
+            perror("Error opening");
             exit(EXIT_FAILURE);
         }
-        else
+        // super cheese scanning...
+
+        while (!feof(vfp) && fgets(csv_line, sizeof(csv_line) - 1, vfp) != nullptr && !done)
         {
-            log_printf("Parsed %d replay VERA writes\n", replay_data.size());
+            if (csv_line[0] == '#')
+            {
+                continue;
+            }
+
+            char *   s    = csv_line;
+            char *   se   = nullptr;
+            int64_t  v    = 0;
+            uint16_t addr = 0;
+            uint8_t  data = 0;
+
+            ReplaySignals rs = {};
+
+            se = nullptr;
+            v  = 0;
+            if (v = strtoull(s, &se, 10), se < s)
+            {
+                fprintf(stderr, "error parsing time: %s", s);
+                exit(EXIT_FAILURE);
+            }
+            rs.tc = v;
+            s     = se;
+            while (*s == ',' || *s == ' ')
+            {
+                s++;
+            }
+
+            se = nullptr;
+            v  = 0;
+            if (v = strtoul(s, &se, 0), se < s)
+            {
+                fprintf(stderr, "error parsing reg: %s", s);
+                exit(EXIT_FAILURE);
+            }
+            rs.reg = v & 0x1f;
+            s      = se;
+            while (*s == ',' || *s == ' ')
+            {
+                s++;
+            }
+
+            se = nullptr;
+            v  = 0;
+            if (v = strtoul(s, &se, 0), se < s)
+            {
+                fprintf(stderr, "error parsing data: %s", s);
+                exit(EXIT_FAILURE);
+            }
+            rs.data = v & 0xff;
+            s       = se;
+            while (*s == ',' || *s == ' ')
+            {
+                s++;
+            }
+            rs.rwb = 0;
+
+            replay_data.push_back(rs);
         }
 
-        fclose(sfp);
+        // int test = 0;
+        // for (auto v : replay_data)
+        // {
+        //     printf("%09lld: %02x %s %s 0x%02x\n", v.tc, v.reg, vera_reg_name(v.reg), v.rwb ? "<=" : "=>", v.data);
+        // }
+    }
+
+    if (replay_data.size() > 0)
+    {
+        log_printf("Parsed %d VERA writes for replay command.\n", replay_data.size());
     }
 
     Verilated::commandArgs(argc, argv);
@@ -1268,7 +1588,7 @@ int main(int argc, char ** argv)
         Verilated::traceEverOn(true);
     }
 
-    Vtop *          top = new Vtop;
+    Vtop * top = new Vtop;
 
 #if SDL_RENDER
     SDL_Renderer * renderer = nullptr;
@@ -1295,7 +1615,6 @@ int main(int argc, char ** argv)
         SDL_RenderClear(renderer);
     }
 
-    bool shot_all  = true;        // screenshot all frames
     bool take_shot = false;
 
 #endif        // SDL_RENDER
@@ -1367,6 +1686,11 @@ int main(int argc, char ** argv)
             }
         }
 #endif
+
+#if 1
+        audio_i2s(top->audio_bck, top->audio_lrck, top->audio_data);
+#endif
+
         current_x++;
 
         if (hsync)
@@ -1426,7 +1750,7 @@ int main(int argc, char ** argv)
                         SDL_RenderReadPixels(
                             renderer, NULL, SDL_PIXELFORMAT_ARGB8888, screen_shot->pixels, screen_shot->pitch);
                         sprintf(
-                            save_name, LOGDIR "vera_vsim_%dx%d_f%02d.png", VISIBLE_WIDTH, VISIBLE_HEIGHT, frame_num);
+                            save_name, LOGDIR "vera_vsim_%dx%d_f%03d.png", VISIBLE_WIDTH, VISIBLE_HEIGHT, frame_num);
                         IMG_SavePNG(screen_shot, save_name);
                         SDL_FreeSurface(screen_shot);
                         float fnum = ((1.0 / PIXEL_CLOCK_MHZ) * ((main_time - first_frame_start) / 2)) / 1000.0;
@@ -1488,6 +1812,9 @@ int main(int argc, char ** argv)
     {
         tfp->close();
     }
+
+    wav_end();
+
     log_printf("Simulation ended after %d frames, %lu pixel clock ticks (%.04f milliseconds)\n",
                frame_num,
                (main_time / 2),
