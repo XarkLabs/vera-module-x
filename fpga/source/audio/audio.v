@@ -94,6 +94,11 @@ module audio(
     wire [23:0] left_data = {mix_l, 7'b0};
     wire [23:0] right_data = {mix_r, 7'b0};
 
+`ifndef SYNTHESIS
+    wire [23:0] u_left_data = rst ? 24'hFFFFFF : (left_data ^ (24'h200000));
+    wire [23:0] u_right_data = rst ? 24'hFFFFFF : (right_data ^ (24'h200000));
+`endif
+
     dacif dacif(
         .rst(rst),
         .clk(clk),

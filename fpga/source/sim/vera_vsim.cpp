@@ -905,7 +905,7 @@ void audio_i2s(bool bclk, bool ws, bool sd)
             wav_begin(LOGDIR "vsim_audio_out.wav", 48828);
         }
 
-        if (i2s_bit_count < 25)
+        if (i2s_bit_count < 24)
         {
             if (ws)
             {
@@ -924,9 +924,9 @@ void audio_i2s(bool bclk, bool ws, bool sd)
         {
             if (ws)
             {
-                if (right_audio_word & 0x400000)
+                if (right_audio_word & 0x200000)
                 {
-                    right_audio_word |= ~0x7fffff;
+                    right_audio_word |= ~0x3fffff;
                 }
                 if (right_audio_word)
                 {
@@ -948,9 +948,9 @@ void audio_i2s(bool bclk, bool ws, bool sd)
             }
             else
             {
-                if (left_audio_word & 0x400000)
+                if (left_audio_word & 0x200000)
                 {
-                    left_audio_word |= ~0x7fffff;
+                    left_audio_word |= ~0x3fffff;
                 }
                 if (left_audio_word)
                 {
