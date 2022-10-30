@@ -190,7 +190,7 @@ vsim: $(VLT_CONFIG) source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
 # run Verilator to build and run native simulation executable
 vrun: source/sim/obj_dir/V$(VTOP) $(MAKEFILE_LIST)
 	@mkdir -p $(SIM_LOGS)
-	cd source && sim/obj_dir/V$(VTOP) $(VRUN_TESTDATA)
+	cd source && sim/obj_dir/V$(VTOP) $(VRUN_OPTS)
 
 # use Icarus Verilog to build vvp simulation executable
 $(OUTDIR)/$(TBOUTNAME): $(VLT_CONFIG) $(TBFILE) $(TOP_FILE) $(SRC) $(MAKEFILE_LIST)

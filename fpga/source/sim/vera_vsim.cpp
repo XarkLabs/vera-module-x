@@ -201,6 +201,7 @@ enum struct Bus
 enum struct Cmd
 {
     DONE,
+    VSYNC,
     DELAY,
     REG_WR,
     REG_WR_VALUE,
@@ -239,7 +240,7 @@ struct BusCommand
 
 #define REG_WR_ARRAY(reg, array, count)                                                                                \
     {                                                                                                                  \
-        Cmd::REG_WR_ARRAY, (reg), 0, (array), (count), 0                                                               \
+        Cmd::REG_WR_ARRAY, (reg), 0, reinterpret_cast<const uint8_t *>(array), (count)-1, 0                            \
     }
 
 #define REG_WR_FILE(reg, file, count)                                                                                  \
@@ -262,64 +263,35 @@ struct BusCommand
         Cmd::REG_RD_FILE, (reg), 0, reinterpret_cast<const uint8_t *>(file), (count), 0                                \
     }
 
+#define VSYNC()                                                                                                        \
+    {                                                                                                                  \
+        Cmd::VSYNC, 0, 0, nullptr, 0, 0                                                                                \
+    }
 #define DONE()                                                                                                         \
     {                                                                                                                  \
         Cmd::DONE, 0, 0, nullptr, 0, 0                                                                                 \
     }
 
+const char vera_string[] = "VERA active";
+
 BusCommand TestCommands[] = {
-    // clear VRAM
 
-    DELAY(500),        // delay cycles
+    DELAY(50),        // allow VERA time to reset
 
-#if 0        // clear VRAM
-
+    // copy character set
     REG_WR(VERA_CTRL, 0x00),
-
-    REG_WR(VERA_ADDR_L, 0x00),                      // addr $hmm00
-    REG_WR(VERA_ADDR_M, 0x00),                      // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10),                      // addr $0mmll incr +1
-    REG_WR_VALUE(VERA_DATA0, 0x00, 0x1F000),        // clear VRAM
-    DELAY(500),                                     // delay cycles
-#endif
-
-#if 0
-    // screen_init:
-    REG_WR(VERA_CTRL, 0x00),
-    // 	lda #2
-    // 	jsr screen_set_charset
-
-    //  ldx #<charset_addr
-    //  stx VERA_ADDR_L
-    //  ldx #>charset_addr
-    //  stx VERA_ADDR_M
-    //  ldx #$10 | ^charset_addr
-    //  stx VERA_ADDR_H
-
     REG_WR(VERA_ADDR_L, VERA_CHARSET_BASE & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, (VERA_CHARSET_BASE >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | ((VERA_CHARSET_BASE >> 16) & 0x01)),        // addr $0mmll incr +1
     REG_WR_ARRAY(VERA_DATA0, iso_charset, sizeof(iso_charset)),
-
-    // 	; Layer 1 configuration
-    // 	lda #((1<<6)|(2<<4)|(0<<0))
-    // 	sta VERA_L1_CONFIG
+    // default screen init
     REG_WR(VERA_L1_CONFIG, ((1 << 6) | (2 << 4) | (0 << 0))),
-    // 	lda #(screen_addr>>9)
-    // 	sta VERA_L1_MAPBASE
     REG_WR(VERA_L1_MAPBASE, (VERA_CHARMAP_BASE >> 9)),
-    // 	lda #((charset_addr>>11)<<2)
-    // 	sta VERA_L1_TILEBASE
     REG_WR(VERA_L1_TILEBASE, ((VERA_CHARSET_BASE >> 11) << 2)),
-    // 	stz VERA_L1_HSCROLL_L
     REG_WR(VERA_L1_HSCROLL_L, 0x00),
-    // 	stz VERA_L1_HSCROLL_H
     REG_WR(VERA_L1_HSCROLL_H, 0x00),
-    // 	stz VERA_L1_VSCROLL_L
     REG_WR(VERA_L1_VSCROLL_L, 0x00),
-    // 	stz VERA_L1_VSCROLL_H
     REG_WR(VERA_L1_VSCROLL_H, 0x00),
-
     REG_WR(VERA_L0_CONFIG, 0x04),
     REG_WR(VERA_L0_MAPBASE, (0x0000 >> 9)),
     REG_WR(VERA_L0_TILEBASE, ((0x0000 >> 11) << 2) | 0x01),
@@ -327,346 +299,46 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_L0_HSCROLL_H, 0x00),
     REG_WR(VERA_L0_VSCROLL_L, 0x00),
     REG_WR(VERA_L0_VSCROLL_H, 0x00),
-
-    // 	; Display composer configuration
-    // 	lda #2
-    // 	sta VERA_CTRL
     REG_WR(VERA_CTRL, 0x02),
-    // 	stz VERA_DC_HSTART
     REG_WR(VERA_DC_HSTART, 0x00),
-    // 	lda #(640>>2)
-    // 	sta VERA_DC_HSTOP
     REG_WR(VERA_DC_HSTOP, (640 >> 2)),
-    // 	stz VERA_DC_VSTART
     REG_WR(VERA_DC_VSTART, 0),
-    // 	lda #(480>>2)
-    // 	sta VERA_DC_VSTOP
     REG_WR(VERA_DC_VSTOP, (480 >> 1)),
 
-    // 	stz VERA_CTRL
     REG_WR(VERA_CTRL, 0x00),
-    // 	lda #$21
-    // 	sta VERA_DC_VIDEO
-    REG_WR(VERA_DC_VIDEO, 0x31),
-    // 	lda #128
-    // 	sta VERA_DC_HSCALE
+    REG_WR(VERA_DC_VIDEO, 0x21),
     REG_WR(VERA_DC_HSCALE, 128),
-    // 	sta VERA_DC_VSCALE
     REG_WR(VERA_DC_VSCALE, 128),
-    // 	stz VERA_DC_BORDER
     REG_WR(VERA_DC_BORDER, 0x00),
 
-    // 	; Clear sprite attributes ($1FC00-$1FFFF)
-    // 	stz VERA_ADDR_L
-    // 	lda #$FC
-    // 	sta VERA_ADDR_M
-    // 	lda #$11
-    // 	sta VERA_ADDR_H
     REG_WR(VERA_ADDR_L, VERA_SPRITES_BASE & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, (VERA_SPRITES_BASE >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x10 | ((VERA_SPRITES_BASE >> 16) & 0x01)),        // addr $0mmll incr +1
-
-    // 	ldx #4
-    // 	ldy #0
-    // :	stz VERA_DATA0     ;clear 128*8 bytes
-    // 	iny
-    // 	bne :-
-    // 	dex
-    // 	bne :-
     REG_WR_VALUE(VERA_DATA0, 0x00, 128 * 8),
 
-    // 	lda #$ff
-    // 	sta cscrmd      ; force setting color on first mode change
-    // 	rts
+    VSYNC(),
+#if 1
+    REG_WR(VERA_ADDR_L, VERA_CHARMAP_BASE & 0xFF),                         // addr $hmm00
+    REG_WR(VERA_ADDR_M, (VERA_CHARMAP_BASE >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x20 | ((VERA_CHARMAP_BASE >> 16) & 0x01)),        // addr $0mmll incr +2
+    REG_WR_VALUE(VERA_DATA0, 0x20, 128 * 64),
 
-    DELAY(500),        // delay cycles
-
-    // color 0 = blue
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (0 * 80 + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((0 * 80 + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((0 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR_VALUE(VERA_DATA0, 0xFF, 80),
-    REG_WR(VERA_ADDR_L, (1 * 80 + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((1 * 80 + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0xc0 | (((1 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +80
-    REG_WR_VALUE(VERA_DATA0, 0x80, 478),
-    REG_WR(VERA_ADDR_L, (1 * 80 + 79) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((1 * 80 + 79) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0xc0 | (((1 * 80 + 79) >> 16) & 0x01)),        // addr $0mmll incr +80
-    REG_WR_VALUE(VERA_DATA0, 0x01, 478),
-    REG_WR(VERA_ADDR_L, (479 * 80 + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((479 * 80 + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((479 * 80 + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR_VALUE(VERA_DATA0, 0xFF, 80),
-
-    REG_WR(VERA_ADDR_L, (20 * 80 + 8) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((20 * 80 + 8) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0xc0 | (((20 * 80 + 8) >> 16) & 0x01)),        // addr $0mmll incr +80
-
-    REG_WR(VERA_DATA0, 0b11111111),
-    REG_WR(VERA_DATA0, 0b10000000),
-    REG_WR(VERA_DATA0, 0b10001010),
-    REG_WR(VERA_DATA0, 0b10000101),
-    REG_WR(VERA_DATA0, 0b10001010),
-    REG_WR(VERA_DATA0, 0b10000101),
-    REG_WR(VERA_DATA0, 0b10000000),
-    REG_WR(VERA_DATA0, 0b11111111),
-
-    REG_WR(VERA_ADDR_L, (20 * 80 + 9) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((20 * 80 + 9) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0xc0 | (((20 * 80 + 9) >> 16) & 0x01)),        // addr $0mmll incr +80
-
-    REG_WR(VERA_DATA0, 0b11111111),
-    REG_WR(VERA_DATA0, 0b00000001),
-    REG_WR(VERA_DATA0, 0b10100001),
-    REG_WR(VERA_DATA0, 0b01010001),
-    REG_WR(VERA_DATA0, 0b10100001),
-    REG_WR(VERA_DATA0, 0b01010001),
-    REG_WR(VERA_DATA0, 0b00000001),
-    REG_WR(VERA_DATA0, 0b11111111),
+    REG_WR(VERA_ADDR_L, 1 + VERA_CHARMAP_BASE & 0xFF),                     // addr $hmm00
+    REG_WR(VERA_ADDR_M, (VERA_CHARMAP_BASE >> 8) & 0xFF),                  // addr $h00ll
+    REG_WR(VERA_ADDR_H, 0x20 | ((VERA_CHARMAP_BASE >> 16) & 0x01)),        // addr $0mmll incr +2
+    REG_WR_VALUE(VERA_DATA0, 0x61, 128 * 64),
 
     REG_WR(VERA_ADDR_L, (VERA_CHARMAP_BASE + (2 * 128) + 2) & 0xFF),                         // addr $hmm00
     REG_WR(VERA_ADDR_M, ((VERA_CHARMAP_BASE + (2 * 128) + 2) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_CHARMAP_BASE + (2 * 128) + 2) >> 16) & 0x01)),        // addr $0mmll incr +1
+    REG_WR(VERA_ADDR_H, 0x20 | (((VERA_CHARMAP_BASE + (2 * 128) + 2) >> 16) & 0x01)),        // addr $0mmll incr +2
 
-    REG_WR(VERA_DATA0, 'V'),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, 'E'),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, 'R'),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, 'A'),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, ' '),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, 'i'),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, 's'),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, ' '),
-    REG_WR(VERA_DATA0, 0x01),
-    REG_WR(VERA_DATA0, 'a'),
-    REG_WR(VERA_DATA0, 0x51),
-    REG_WR(VERA_DATA0, 'l'),
-    REG_WR(VERA_DATA0, 0x51),
-    REG_WR(VERA_DATA0, 'i'),
-    REG_WR(VERA_DATA0, 0x51),
-    REG_WR(VERA_DATA0, 'v'),
-    REG_WR(VERA_DATA0, 0x51),
-    REG_WR(VERA_DATA0, 'e'),
-    REG_WR(VERA_DATA0, 0x51),
-    REG_WR(VERA_DATA0, '!'),
-    REG_WR(VERA_DATA0, 0x51),
-
-#endif
-
-//
-#if 0
-    DELAY(500000),        // delay cycles
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0xFF),
-    REG_WR(VERA_DATA0, 0x0F),
-
-    REG_WR(VERA_ADDR_L, (VERA_PALETTE_BASE + 0) & 0xFF),                         // addr $hmm00
-    REG_WR(VERA_ADDR_M, ((VERA_PALETTE_BASE + 0) >> 8) & 0xFF),                  // addr $h00ll
-    REG_WR(VERA_ADDR_H, 0x10 | (((VERA_PALETTE_BASE + 0) >> 16) & 0x01)),        // addr $0mmll incr +1
-    REG_WR(VERA_DATA0, 0x0C),
-    REG_WR(VERA_DATA0, 0x00),
-
+    REG_WR_ARRAY(VERA_DATA0, vera_string, sizeof(vera_string) - 1),
 #endif
 
     REG_WR_REPLAY(),
 
-    DELAY(5000),        // delay cycles
+    VSYNC(),
+    VSYNC(),
 
     DONE()        // ending command
 };
@@ -749,6 +421,7 @@ const float  BusSpeed       = 8.0 / PIXEL_CLOCK_MHZ;
 float        BusFraction    = 0.0;
 uint64_t     BusCycle       = 0;
 uint64_t     CommandWait    = 0;
+bool         BusWaitVSync   = false;
 Bus          BusState       = Bus::IDLE;
 BusCommand * BusCmdPtr      = TestCommands;
 uint32_t     BusNumCmds     = NUM_ELEMENTS(TestCommands);
@@ -764,282 +437,309 @@ void process_bus(Vtop * top)
     {
         BusFraction -= 1.0;
 
-        if (BusState == Bus::SELECT)
+        if (!BusWaitVSync)
         {
-            if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
+            if (BusState == Bus::SELECT)
             {
-                BusCurCmd.data = BusCurCmd.dataptr[BusCurCmd.dataindex];
+                if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
+                {
+                    BusCurCmd.data = BusCurCmd.dataptr[BusCurCmd.dataindex];
+                }
+                else if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+                {
+                    if (BusCurCmd.dataindex < replay_data.size())
+                    {
+                        BusCurCmd.regnum = replay_data.at(BusCurCmd.dataindex).reg;
+                        BusCurCmd.data   = replay_data.at(BusCurCmd.dataindex).data;
+                    }
+                    else
+                    {
+                        BusState = Bus::IDLE;
+                    }
+                }
             }
-            else if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+
+            bool rd_n = (BusCurCmd.cmd == Cmd::REG_RD || BusCurCmd.cmd == Cmd::REG_RD_FILE) ? 0 : 1;
+            bool wr_n = (BusCurCmd.cmd == Cmd::REG_WR || BusCurCmd.cmd == Cmd::REG_WR_VALUE ||
+                         BusCurCmd.cmd == Cmd::REG_WR_ARRAY || BusCurCmd.cmd == Cmd::REG_WR_FILE ||
+                         BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+                            ? 0
+                            : 1;
+
+            switch (BusState)
             {
-                BusCurCmd.regnum = replay_data[BusCurCmd.dataindex].reg;
-                BusCurCmd.data   = replay_data[BusCurCmd.dataindex].data;
-            }
-        }
+                case Bus::SELECT: {
+                    if (bus_spam)
+                    {
+                        logonly_printf("[%8lu/%8lu] BUS: CS_n=%d, RD_n=%d, WR_n=%d REG_ADR=0x%02x <= 0x%02x%s\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       0,
+                                       rd_n,
+                                       wr_n,
+                                       BusCurCmd.regnum,
+                                       wr_n ? 0xff : BusCurCmd.data,
+                                       wr_n ? "" : " WRITE");
+                    }
+                    if (BusCurCmd.regnum == VERA_AUDIO_CTRL)
+                    {
+                        if (fast_mode)
+                        {
+                            log_printf("[%8lu/%8lu] AUDIO_CTRL written, fast mode disabled\n", main_time / 2, BusCycle);
+                        }
+                        fast_mode = false;
+                        BusCycle  = CommandWait;
+                    }
+                    set_bus(top, 0, rd_n, wr_n, BusCurCmd.regnum);
+                    set_data(top, BusCurCmd.data);
+                    BusState = Bus::DESELECT;
 
-        bool rd_n = (BusCurCmd.cmd == Cmd::REG_RD || BusCurCmd.cmd == Cmd::REG_RD_FILE) ? 0 : 1;
-        bool wr_n =
-            (BusCurCmd.cmd == Cmd::REG_WR || BusCurCmd.cmd == Cmd::REG_WR_VALUE || BusCurCmd.cmd == Cmd::REG_WR_ARRAY ||
-             BusCurCmd.cmd == Cmd::REG_WR_FILE || BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
-                ? 0
-                : 1;
-
-        switch (BusState)
-        {
-            case Bus::SELECT: {
-                if (bus_spam)
-                {
-                    logonly_printf("[%8lu/%8lu] BUS: CS_n=%d, RD_n=%d, WR_n=%d REG_ADR=0x%02x <= 0x%02x%s\n",
-                                   main_time / 2,
-                                   BusCycle,
-                                   0,
-                                   rd_n,
-                                   wr_n,
-                                   BusCurCmd.regnum,
-                                   wr_n ? 0xff : BusCurCmd.data,
-                                   wr_n ? "" : " WRITE");
-                }
-                if (BusCurCmd.regnum == VERA_AUDIO_CTRL)
-                {
-                    fast_mode = false;
-                    BusCycle  = CommandWait;
-                }
-                set_bus(top, 0, rd_n, wr_n, BusCurCmd.regnum);
-                set_data(top, BusCurCmd.data);
-                BusState = Bus::DESELECT;
-
-                break;
-            }
-
-            case Bus::DESELECT:
-                if (bus_spam)
-                {
-                    logonly_printf("[%8lu/%8lu] BUS: CS_n=%d, RD_n=%d, WR_n=%d REG_ADR=0x%02x => 0x%02x%s\n",
-                                   main_time / 2,
-                                   BusCycle,
-                                   1,
-                                   1,
-                                   1,
-                                   BusCurCmd.regnum,
-                                   get_data(top),
-                                   rd_n ? "" : " READ");
-                }
-                set_bus(top, 1, 1, 1, BusCurCmd.regnum);
-                BusState = Bus::IDLE;
-
-                break;
-
-            case Bus::IDLE:
-                set_bus(top, 1, 1, 1, BusCurCmd.regnum);
-
-                if (!fast_mode && CommandWait != 0 && BusCycle < CommandWait)
-                {
-                    //                    logonly_printf(
-                    //                        "[%8lu/%8lu] ... waiting %llu < %llu\n", main_time / 2, BusCycle,
-                    //                        BusCycle, CommandWait);
                     break;
                 }
 
-                if (BusRepeatCount >= BusCurCmd.count)
-                {
-                    if (BusCmdPtr != nullptr && BusCmdIndex < BusNumCmds)
+                case Bus::DESELECT:
+                    if (bus_spam)
                     {
-                        BusCurCmd      = BusCmdPtr[BusCmdIndex++];
-                        BusRepeatCount = 0;
-                        if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+                        logonly_printf("[%8lu/%8lu] BUS: CS_n=%d, RD_n=%d, WR_n=%d REG_ADR=0x%02x => 0x%02x%s\n",
+                                       main_time / 2,
+                                       BusCycle,
+                                       1,
+                                       1,
+                                       1,
+                                       BusCurCmd.regnum,
+                                       get_data(top),
+                                       rd_n ? "" : " READ");
+                    }
+                    set_bus(top, 1, 1, 1, BusCurCmd.regnum);
+                    BusState = Bus::IDLE;
+
+                    break;
+
+                case Bus::IDLE:
+                    set_bus(top, 1, 1, 1, BusCurCmd.regnum);
+
+                    if (!fast_mode && CommandWait != 0 && BusCycle < CommandWait)
+                    {
+                        //                    logonly_printf(
+                        //                        "[%8lu/%8lu] ... waiting %llu < %llu\n", main_time / 2, BusCycle,
+                        //                        BusCycle, CommandWait);
+                        break;
+                    }
+
+                    if (BusRepeatCount >= BusCurCmd.count)
+                    {
+                        if (BusCmdPtr != nullptr && BusCmdIndex < BusNumCmds)
                         {
-                            BusCurCmd.count = replay_data.size() - 1;
+                            BusCurCmd      = BusCmdPtr[BusCmdIndex++];
+                            BusRepeatCount = 0;
+                            if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
+                            {
+                                if (replay_data.size())
+                                {
+                                    BusCurCmd.count = replay_data.size() - 1;
+                                }
+                                else
+                                {
+                                    BusCurCmd.count = 0;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            BusCurCmd.cmd   = Cmd::DONE;
+                            BusCurCmd.count = ~0;
                         }
                     }
                     else
                     {
-                        BusCurCmd.cmd   = Cmd::DONE;
-                        BusCurCmd.count = ~0;
-                    }
-                }
-                else
-                {
-                    BusRepeatCount += 1;
-                    if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
-                    {
-                        if (BusCurCmd.dataindex >= BusCurCmd.count)
+                        BusRepeatCount += 1;
+                        if (BusCurCmd.cmd == Cmd::REG_WR_ARRAY)
                         {
-                            log_printf("[%8lu/%8lu] REG_WR_ARRAY Array index overflow, index %d of array [%d]\n",
-                                       main_time / 2,
-                                       BusCycle,
-                                       BusCurCmd.dataindex,
-                                       BusCurCmd.count);
-                            BusCurCmd.dataindex = 0;
-                        }
-                        else
-                        {
-                            BusCurCmd.dataindex += 1;
-                        }
-                    }
-                    else if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
-                    {
-                        if (BusCurCmd.dataindex >= BusCurCmd.count)
-                        {
-                            if (BusCurCmd.count > 0)
+                            if (BusCurCmd.dataindex >= BusCurCmd.count)
                             {
-                                log_printf("[%8lu/%8lu] REG_WR_REPLAY Array index overflow, index %d of array [%d]\n",
+                                log_printf("[%8lu/%8lu] REG_WR_ARRAY Array index overflow, index %d of array [%d]\n",
                                            main_time / 2,
                                            BusCycle,
                                            BusCurCmd.dataindex,
                                            BusCurCmd.count);
+                                BusCurCmd.dataindex = 0;
                             }
-                            BusCurCmd.dataindex = 0;
+                            else
+                            {
+                                BusCurCmd.dataindex += 1;
+                            }
                         }
-                        else
+                        else if (BusCurCmd.cmd == Cmd::REG_WR_REPLAY)
                         {
-                            BusCurCmd.dataindex += 1;
+                            if (BusCurCmd.dataindex >= BusCurCmd.count)
+                            {
+                                if (BusCurCmd.count > 0)
+                                {
+                                    log_printf(
+                                        "[%8lu/%8lu] REG_WR_REPLAY Array index overflow, index %d of array [%d]\n",
+                                        main_time / 2,
+                                        BusCycle,
+                                        BusCurCmd.dataindex,
+                                        BusCurCmd.count);
+                                }
+                                BusCurCmd.dataindex = 0;
+                            }
+                            else
+                            {
+                                BusCurCmd.dataindex += 1;
+                            }
                         }
                     }
-                }
 
-                switch (BusCurCmd.cmd)
-                {
-                    case Cmd::DELAY:
-                        if (!BusRepeatCount)
-                        {
-                            logonly_printf("[%8lu/%8lu] DELAY(%d)\n", main_time / 2, BusCycle, BusCurCmd.count);
-                        }
-                        else if (BusRepeatCount == BusCurCmd.count - 1)
-                        {
-                            logonly_printf("[%8lu/%8lu]  - DELAY elapsed\n", main_time / 2, BusCycle);
-                        }
-                        break;
-                    case Cmd::REG_WR:
-                        BusState = Bus::SELECT;
-                        logonly_printf("[%8lu/%8lu] REG_WR(0x%02x %s, 0x%02x)\n",
-                                       main_time / 2,
-                                       BusCycle,
-                                       BusCurCmd.regnum,
-                                       vera_reg_name(BusCurCmd.regnum),
-                                       BusCurCmd.data);
-                        break;
-                    case Cmd::REG_WR_VALUE:
-                        BusState = Bus::SELECT;
-                        if (BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
-                        {
-                            logonly_printf("[%8lu/%8lu] REG_WR_VALUE(0x%02x %s, 0x%02x, %d/%d)%s\n",
+                    switch (BusCurCmd.cmd)
+                    {
+                        case Cmd::DELAY:
+                            if (!BusRepeatCount)
+                            {
+                                logonly_printf("[%8lu/%8lu] DELAY(%d)\n", main_time / 2, BusCycle, BusCurCmd.count);
+                            }
+                            else if (BusRepeatCount == BusCurCmd.count - 1)
+                            {
+                                logonly_printf("[%8lu/%8lu]  - DELAY elapsed\n", main_time / 2, BusCycle);
+                            }
+                            break;
+                        case Cmd::REG_WR:
+                            BusState = Bus::SELECT;
+                            logonly_printf("[%8lu/%8lu] REG_WR(0x%02x %s, 0x%02x)\n",
                                            main_time / 2,
                                            BusCycle,
                                            BusCurCmd.regnum,
                                            vera_reg_name(BusCurCmd.regnum),
-                                           BusCurCmd.data,
-                                           BusRepeatCount,
-                                           BusCurCmd.count,
-                                           BusRepeatCount >= cmd_rep_spam - 1 &&
-                                                   BusRepeatCount < BusCurCmd.count - cmd_rep_spam
-                                               ? " ..."
-                                               : "");
-                        }
-                        break;
-                    case Cmd::REG_WR_ARRAY:
-                        BusState       = Bus::SELECT;
-                        BusCurCmd.data = BusCurCmd.dataptr[BusCurCmd.dataindex];
+                                           BusCurCmd.data);
+                            break;
+                        case Cmd::REG_WR_VALUE:
+                            BusState = Bus::SELECT;
+                            if (BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
+                            {
+                                logonly_printf("[%8lu/%8lu] REG_WR_VALUE(0x%02x %s, 0x%02x, %d/%d)%s\n",
+                                               main_time / 2,
+                                               BusCycle,
+                                               BusCurCmd.regnum,
+                                               vera_reg_name(BusCurCmd.regnum),
+                                               BusCurCmd.data,
+                                               BusRepeatCount,
+                                               BusCurCmd.count,
+                                               BusRepeatCount >= cmd_rep_spam - 1 &&
+                                                       BusRepeatCount < BusCurCmd.count - cmd_rep_spam
+                                                   ? " ..."
+                                                   : "");
+                            }
+                            break;
+                        case Cmd::REG_WR_ARRAY:
+                            BusState       = Bus::SELECT;
+                            BusCurCmd.data = BusCurCmd.dataptr[BusCurCmd.dataindex];
 
-                        if (BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
-                        {
-                            logonly_printf("[%8lu/%8lu] REG_WR_ARRAY(0x%02x %s, %p[%d]=0x%02x, %d/%d)%s\n",
+                            if (BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
+                            {
+                                logonly_printf("[%8lu/%8lu] REG_WR_ARRAY(0x%02x %s, %p[%d]=0x%02x, %d/%d)%s\n",
+                                               main_time / 2,
+                                               BusCycle,
+                                               BusCurCmd.regnum,
+                                               vera_reg_name(BusCurCmd.regnum),
+                                               BusCurCmd.dataptr,
+                                               BusCurCmd.dataindex,
+                                               BusCurCmd.data,
+                                               BusRepeatCount,
+                                               BusCurCmd.count,
+                                               BusRepeatCount >= cmd_rep_spam - 1 &&
+                                                       BusRepeatCount < BusCurCmd.count - cmd_rep_spam
+                                                   ? " ..."
+                                                   : "");
+                            }
+                            break;
+                        case Cmd::REG_WR_FILE:
+                            BusState = Bus::SELECT;
+                            if (BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
+                            {
+                                logonly_printf("[%8lu/%8lu] REG_WR_FILE(0x%02x %s, \"%s\", %d/%d)\n",
+                                               main_time / 2,
+                                               BusCycle,
+                                               BusCurCmd.regnum,
+                                               vera_reg_name(BusCurCmd.regnum),
+                                               BusCurCmd.dataptr,
+                                               BusRepeatCount,
+                                               BusCurCmd.count,
+                                               BusRepeatCount >= cmd_rep_spam - 1 &&
+                                                       BusRepeatCount < BusCurCmd.count - cmd_rep_spam
+                                                   ? " ..."
+                                                   : "");
+                            }
+                            break;
+                        case Cmd::REG_WR_REPLAY:
+                            BusState = Bus::SELECT;
+                            if (BusCurCmd.dataindex < replay_data.size())
+                            {
+                                BusCurCmd.regnum = replay_data.at(BusCurCmd.dataindex).reg;
+                                BusCurCmd.data   = replay_data.at(BusCurCmd.dataindex).data;
+                                CommandWait      = replay_data.at(BusCurCmd.dataindex).tc;
+                            }
+
+                            if (true || BusRepeatCount < cmd_rep_spam ||
+                                BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
+                            {
+                                logonly_printf("[%8lu/%8lu] REG_WR_REPLAY(0x%02x %s, replay[%d]=0x%02x, %d/%d)%s\n",
+                                               main_time / 2,
+                                               BusCycle,
+                                               BusCurCmd.regnum,
+                                               vera_reg_name(BusCurCmd.regnum),
+                                               BusCurCmd.dataindex,
+                                               BusCurCmd.data,
+                                               BusRepeatCount,
+                                               BusCurCmd.count,
+                                               BusRepeatCount >= cmd_rep_spam - 1 &&
+                                                       BusRepeatCount < BusCurCmd.count - cmd_rep_spam
+                                                   ? " ..."
+                                                   : "");
+                            }
+                            break;
+                        case Cmd::REG_RD:
+                            BusState = Bus::SELECT;
+                            logonly_printf("[%8lu/%8lu] REG_RD(0x%02x %s)\n",
                                            main_time / 2,
                                            BusCycle,
                                            BusCurCmd.regnum,
-                                           vera_reg_name(BusCurCmd.regnum),
+                                           vera_reg_name(BusCurCmd.regnum));
+                            break;
+                        case Cmd::REG_RD_FILE:
+                            BusState = Bus::SELECT;
+                            logonly_printf("[%8lu/%8lu] REG_RD_FILE(0x%02x, \"%s\", %d/%d)\n",
+                                           main_time / 2,
+                                           BusCycle,
+                                           BusCurCmd.regnum,
                                            BusCurCmd.dataptr,
-                                           BusCurCmd.dataindex,
-                                           BusCurCmd.data,
                                            BusRepeatCount,
-                                           BusCurCmd.count,
-                                           BusRepeatCount >= cmd_rep_spam - 1 &&
-                                                   BusRepeatCount < BusCurCmd.count - cmd_rep_spam
-                                               ? " ..."
-                                               : "");
-                        }
-                        break;
-                    case Cmd::REG_WR_FILE:
-                        BusState = Bus::SELECT;
-                        if (BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
-                        {
-                            logonly_printf("[%8lu/%8lu] REG_WR_FILE(0x%02x %s, \"%s\", %d/%d)\n",
-                                           main_time / 2,
-                                           BusCycle,
-                                           BusCurCmd.regnum,
-                                           vera_reg_name(BusCurCmd.regnum),
-                                           BusCurCmd.dataptr,
-                                           BusRepeatCount,
-                                           BusCurCmd.count,
-                                           BusRepeatCount >= cmd_rep_spam - 1 &&
-                                                   BusRepeatCount < BusCurCmd.count - cmd_rep_spam
-                                               ? " ..."
-                                               : "");
-                        }
-                        break;
-                    case Cmd::REG_WR_REPLAY:
-                        BusState = Bus::SELECT;
-                        if (BusCurCmd.dataindex < replay_data.size())
-                        {
-                            BusCurCmd.regnum = replay_data.at(BusCurCmd.dataindex).reg;
-                            BusCurCmd.data   = replay_data.at(BusCurCmd.dataindex).data;
-                            CommandWait      = replay_data.at(BusCurCmd.dataindex).tc;
-                        }
+                                           BusCurCmd.count);
+                            break;
+                        case Cmd::VSYNC:
+                            BusState = Bus::IDLE;
+                            logonly_printf("[%8lu/%8lu] VSYNC\n", main_time / 2, BusCycle);
+                            BusWaitVSync = true;
+                            break;
+                        case Cmd::DONE:
+                            BusState = Bus::IDLE;
+                            if (BusCmdPtr)
+                            {
+                                logonly_printf("[%8lu/%8lu] DONE\n", main_time / 2, BusCycle);
+                                done = true;
+                            }
+                            BusCmdPtr   = nullptr;
+                            BusCmdIndex = 0;
+                            BusNumCmds  = 0;
 
-                        if (true || BusRepeatCount < cmd_rep_spam || BusRepeatCount >= BusCurCmd.count - cmd_rep_spam)
-                        {
-                            logonly_printf("[%8lu/%8lu] REG_WR_REPLAY(0x%02x %s, replay[%d]=0x%02x, %d/%d)%s\n",
-                                           main_time / 2,
-                                           BusCycle,
-                                           BusCurCmd.regnum,
-                                           vera_reg_name(BusCurCmd.regnum),
-                                           BusCurCmd.dataindex,
-                                           BusCurCmd.data,
-                                           BusRepeatCount,
-                                           BusCurCmd.count,
-                                           BusRepeatCount >= cmd_rep_spam - 1 &&
-                                                   BusRepeatCount < BusCurCmd.count - cmd_rep_spam
-                                               ? " ..."
-                                               : "");
-                        }
-                        break;
-                    case Cmd::REG_RD:
-                        BusState = Bus::SELECT;
-                        logonly_printf("[%8lu/%8lu] REG_RD(0x%02x %s)\n",
-                                       main_time / 2,
-                                       BusCycle,
-                                       BusCurCmd.regnum,
-                                       vera_reg_name(BusCurCmd.regnum));
-                        break;
-                    case Cmd::REG_RD_FILE:
-                        BusState = Bus::SELECT;
-                        logonly_printf("[%8lu/%8lu] REG_RD_FILE(0x%02x, \"%s\", %d/%d)\n",
-                                       main_time / 2,
-                                       BusCycle,
-                                       BusCurCmd.regnum,
-                                       BusCurCmd.dataptr,
-                                       BusRepeatCount,
-                                       BusCurCmd.count);
-                        break;
-                    case Cmd::DONE:
-                        BusState = Bus::IDLE;
-                        if (BusCmdPtr)
-                        {
-                            logonly_printf("[%8lu/%8lu] DONE\n", main_time / 2, BusCycle);
-                            done = true;
-                        }
-                        BusCmdPtr   = nullptr;
-                        BusCmdIndex = 0;
-                        BusNumCmds  = 0;
-
-                        break;
-                    default:
-                        log_printf("Bad command %u\n", BusCurCmd.cmd);
-                        assert(false);
-                        break;
-                }
-                break;
+                            break;
+                        default:
+                            log_printf("Bad command %u\n", BusCurCmd.cmd);
+                            assert(false);
+                            break;
+                    }
+                    break;
+            }
         }
-
         BusCycle++;
     }
 }
@@ -1194,7 +894,13 @@ void audio_i2s(bool bclk, bool ws, bool sd)
         //        i2s_bit_count);
         if (!noise && sd)
         {
+
             noise = true;
+            if (fast_mode)
+            {
+                printf("Fast_mode disabled\n");
+                fast_mode = false;
+            }
             printf("Recording VERA audio output to \"%s\"\n", LOGDIR "vsim_audio_out.wav");
             wav_begin(LOGDIR "vsim_audio_out.wav", 48828);
         }
@@ -1300,10 +1006,10 @@ int main(int argc, char ** argv)
         {
             sim_render = false;
         }
-        // else if (strcmp(argv[nextarg] + 1, "b") == 0)
-        // {
-        //     sim_bus = true;
-        // }
+        else if (strcmp(argv[nextarg] + 1, "f") == 0)
+        {
+            fast_mode = true;
+        }
         else if (strcmp(argv[nextarg] + 1, "w") == 0)
         {
             wait_close = true;
@@ -1582,13 +1288,19 @@ int main(int argc, char ** argv)
     }
 
     Verilated::commandArgs(argc, argv);
+    Vtop * top = new Vtop;
+
+    VerilatedFstC * tfp = new VerilatedFstC;
 
     if (do_trace)
     {
+        const auto trace_path = LOGDIR "vera_vsim.fst";
+        log_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
         Verilated::traceEverOn(true);
-    }
 
-    Vtop * top = new Vtop;
+        top->trace(tfp, 99);        // trace to heirarchal depth of 99
+        tfp->open(trace_path);
+    }
 
 #if SDL_RENDER
     SDL_Renderer * renderer = nullptr;
@@ -1630,16 +1342,6 @@ int main(int argc, char ** argv)
     int  vsync_count  = 0;
     bool image_loaded = false;
 
-    VerilatedFstC * tfp = new VerilatedFstC;
-
-    if (do_trace)
-    {
-        const auto trace_path = LOGDIR "vera_vsim.fst";
-        logonly_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
-
-        top->trace(tfp, 99);        // trace to heirarchal depth of 99
-        tfp->open(trace_path);
-    }
     bool last_hsync = false;
     bool last_vsync = false;
     bool hsync      = false;
@@ -1721,7 +1423,8 @@ int main(int argc, char ** argv)
 
         if (vsync_detect)
         {
-            if (current_y - 1 > y_max)
+            BusWaitVSync = false;
+            if (current_y > y_max)
                 y_max = current_y - 1;
 
             if (frame_num > 0)
@@ -1775,6 +1478,7 @@ int main(int argc, char ** argv)
             hsync_max        = 0;
             vsync_count      = 0;
             current_y        = 0;
+            x_max            = 0;
 
             if (frame_num == MAX_TRACE_FRAMES)
             {
