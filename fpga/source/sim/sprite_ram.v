@@ -3,6 +3,7 @@
 module sprite_ram(
     input  wire        wr_clk_i,
     input  wire        rd_clk_i,
+    input  wire        rst_i,
     input  wire        wr_clk_en_i,
     input  wire        rd_en_i,
     input  wire        rd_clk_en_i,

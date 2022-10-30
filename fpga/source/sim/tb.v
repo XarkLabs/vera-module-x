@@ -4,7 +4,7 @@
 module tb();
 
     initial begin
-        $dumpfile("tb.vcd");
+        $dumpfile("tb.fst");
         $dumpvars(0, tb);
     end
 
