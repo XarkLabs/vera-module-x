@@ -2,4 +2,4 @@
 fpga/out/**
 fpga/logs/**
 fpga/source/sim/logs/**
-
+.vscode/**

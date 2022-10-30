@@ -12,8 +12,8 @@ module top(
 `ifndef VERILATOR
     inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
 `else
-    input  wire [7:0] extbus_d_i,      /* Data (bi-directional) */
-    output reg  [7:0] extbus_d_o,      /* Data (bi-directional) */
+    input  wire [7:0] extbus_d_i,      /* Data (uni-directional for Verilator) */
+    output reg  [7:0] extbus_d_o,      /* Data (uni-directional for Verilator) */
 `endif
     output wire       extbus_irq_n,  /* IRQ */
 
@@ -79,8 +79,8 @@ module top(
 `ifndef VERILATOR
     inout wire        gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31,
 `else
-    input  wire [7:0] extbus_d_i,      /* Data (bi-directional) */
-    output reg  [7:0] extbus_d_o,      /* Data (bi-directional) */
+    input  wire [7:0] extbus_d_i,      /* Data (uni-directional for Verilator) */
+    output reg  [7:0] extbus_d_o,      /* Data (uni-directional for Verilator) */
 `endif
     output wire       gpio_10,      //extbus_irq_n,  /* IRQ */
 
@@ -181,7 +181,6 @@ module top(
     //////////////////////////////////////////////////////////////////////////
     // Synchronize external asynchronous reset signal to clk25 domain
     //////////////////////////////////////////////////////////////////////////
-
     reg [7:0] por_cnt_r = 0;
     always @(posedge clk25) if (!por_cnt_r[7]) por_cnt_r <= por_cnt_r + 8'd1;
 
@@ -268,9 +267,11 @@ module top(
     wire [7:0] vram_rddata;
 
     wire       audio_fifo_low;
+    wire       audio_fifo_empty;
     wire       sprcol_irq;
     wire       vblank_pulse;
     wire       line_irq;
+    wire [8:0] scanline;
 
     reg        spi_select_r,                  spi_select_next;
     reg        spi_slow_r,                    spi_slow_next;
@@ -289,9 +290,9 @@ module top(
         5'h04: rddata = vram_data1_r;
         5'h05: rddata = {6'b0, dc_select_r, vram_addr_select_r};
 
-        5'h06: rddata = {irq_line_r[8], 3'b0, irq_enable_audio_fifo_low_r, irq_enable_sprite_collision_r, irq_enable_line_r, irq_enable_vsync_r};
+        5'h06: rddata = {irq_line_r[8], scanline[8], 2'b0, irq_enable_audio_fifo_low_r, irq_enable_sprite_collision_r, irq_enable_line_r, irq_enable_vsync_r};
         5'h07: rddata = {sprite_collisions,   audio_fifo_low,              irq_status_sprite_collision_r, irq_status_line_r, irq_status_vsync_r};
-        5'h08: rddata = irq_line_r[7:0];
+        5'h08: rddata = scanline[7:0];
 
         5'h09: begin
             if (dc_select_r == 0) begin
@@ -338,7 +339,7 @@ module top(
         5'h19: rddata = l1_vscroll_r[7:0];
         5'h1A: rddata = {4'b0, l1_vscroll_r[11:8]};
 
-        5'h1B: rddata = {audio_fifo_full, 1'b0, audio_mode_16bit_r, audio_mode_stereo_r, audio_pcm_volume_r};
+        5'h1B: rddata = {audio_fifo_full, audio_fifo_empty, audio_mode_16bit_r, audio_mode_stereo_r, audio_pcm_volume_r};
         5'h1C: rddata = audio_pcm_sample_rate_r;
         5'h1D: rddata = 8'h00;
 
@@ -363,13 +364,30 @@ module top(
     reg [4:0] rdaddr_r;
     reg [4:0] wraddr_r;
     reg [7:0] wrdata_r;
-    always @(negedge bus_write) begin
-        wraddr_r <= extbus_a;
+    reg [4:0] wraddrp_r;
+    reg [7:0] wrdatap_r;
+    reg [4:0] wraddrn_r;
+    reg [7:0] wrdatan_r;
+
+    always @(posedge clk) begin
+        wraddrp_r <= extbus_a;
 `ifndef VERILATOR
-        wrdata_r <= extbus_d;
+        wrdatap_r <= extbus_d;
 `else
-        wrdata_r <= extbus_d_i;
+        wrdatap_r <= extbus_d_i;
 `endif
+    end
+    always @(negedge clk) begin
+        wraddrn_r <= extbus_a;
+`ifndef VERILATOR
+        wrdatan_r <= extbus_d;
+`else
+        wrdatan_r <= extbus_d_i;
+`endif
+    end
+    always @(negedge bus_write) begin
+        wraddr_r <= clk ? wraddrn_r : wraddrp_r;
+        wrdata_r <= clk ? wrdatan_r : wrdatap_r;
     end
     always @(negedge bus_read) begin
         rdaddr_r <= extbus_a;
@@ -1168,6 +1186,7 @@ module top(
 
         .current_field(current_field),
         .line_irq(line_irq),
+        .scanline(scanline),
 
         // Render interface
         .line_idx(line_idx),
@@ -1240,7 +1259,7 @@ module top(
         // Composite interface
         .luma(video_composite_luma),
         .chroma(video_composite_chroma),
-    
+
         // RGB interface
         .rgb_r(video_rgb_r),
         .rgb_g(video_rgb_g),
@@ -1364,7 +1383,7 @@ module top(
         .busy(spi_busy),
 
         .slow(spi_slow_r),
-        
+
         // SPI interface
         .spi_sck(spi_sck),
         .spi_mosi(spi_mosi),
@@ -1396,6 +1415,7 @@ module top(
         .fifo_write(audio_fifo_write_r),
         .fifo_full(audio_fifo_full),
         .fifo_almost_empty(audio_fifo_low),
+        .fifo_empty(audio_fifo_empty),
 
         // I2S audio output
         .i2s_lrck(audio_lrck),
