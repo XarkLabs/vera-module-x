@@ -1,0 +1,97 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Sun Oct 30 22:39:22 2022
+[*]
+[dumpfile] "/Users/kenj/Dev/GitHub/vera-module-x/fpga/source/sim/tb.fst"
+[dumpfile_mtime] "Sun Oct 30 22:29:09 2022"
+[dumpfile_size] 349358244
+[savefile] "/Users/kenj/Dev/GitHub/vera-module-x/fpga/source/sim/audio_waves_NA.gtkw"
+[timestart] 0
+[size] 5120 2107
+[pos] -1 -1
+*-35.340919 941699980000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.top.
+[treeopen] tb.top.audio.
+[sst_width] 394
+[signals_width] 262
+[sst_expanded] 1
+[sst_vpaned_height] 698
+@28
+tb.top.clk25
+@200
+-LEFT PSG data
+@420
+tb.top.audio.psg_left[22:0]
+@22
+tb.top.audio.psg_left[22:0]
+@88022
+tb.top.audio.u_psg_left[22:0]
+@20000
+-
+-
+-
+-
+@200
+-RIGHT PSG data
+@420
+tb.top.audio.psg_right[22:0]
+@22
+tb.top.audio.psg_right[22:0]
+@88022
+tb.top.audio.u_psg_right[22:0]
+@20000
+-
+-
+-
+-
+@200
+-LEFT DAC data
+@420
+tb.top.audio.left_data[23:0]
+@22
+tb.top.audio.left_data[23:0]
+@88022
+tb.top.audio.u_left_data[23:0]
+@20000
+-
+-
+-
+-
+-
+-
+-
+@200
+-RIGHT DAC data
+@421
+tb.top.audio.right_data[23:0]
+@22
+tb.top.audio.right_data[23:0]
+@88022
+tb.top.audio.u_right_data[23:0]
+@20000
+-
+-
+-
+-
+-
+-
+-
+@200
+-VERA bus
+@28
+tb.phi2
+tb.top.extbus_irq_n
+tb.extbus_cs_n
+@22
+tb.extbus_a[15:0]
+tb.extbus_d_wr[7:0]
+tb.extbus_d[7:0]
+@200
+-
+-VERA VRAM access
+@22
+tb.top.vram_addr[16:0]
+tb.top.write_data[7:0]
+[pattern_trace] 1
+[pattern_trace] 0
