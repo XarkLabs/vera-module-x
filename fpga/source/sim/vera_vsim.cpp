@@ -924,9 +924,9 @@ void audio_i2s(bool bclk, bool ws, bool sd)
         {
             if (ws)
             {
-                if (right_audio_word & 0x200000)
+                if (right_audio_word & 0x800000)
                 {
-                    right_audio_word |= ~0x3fffff;
+                    right_audio_word |= ~0x7fffff;
                 }
                 if (right_audio_word)
                 {
@@ -948,9 +948,9 @@ void audio_i2s(bool bclk, bool ws, bool sd)
             }
             else
             {
-                if (left_audio_word & 0x200000)
+                if (left_audio_word & 0x800000)
                 {
-                    left_audio_word |= ~0x3fffff;
+                    left_audio_word |= ~0x7fffff;
                 }
                 if (left_audio_word)
                 {

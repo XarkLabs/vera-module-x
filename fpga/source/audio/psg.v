@@ -228,8 +228,8 @@ module psg(
                 end
 
                 CALC_CH: begin
-                    if (cur_left_en)  left_accum_r  <= left_accum_r  + {{3{scaled_signal[11]}}, scaled_signal};
-                    if (cur_right_en) right_accum_r <= right_accum_r + {{3{scaled_signal[11]}}, scaled_signal};
+                    if (cur_left_en)  left_accum_r  <= left_accum_r  + {{4{scaled_signal[11]}}, scaled_signal};
+                    if (cur_right_en) right_accum_r <= right_accum_r + {{4{scaled_signal[11]}}, scaled_signal};
 
                     working_data_wridx_r <= cur_channel_r;
                     working_data_wren_r  <= 1;
