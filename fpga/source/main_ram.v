@@ -1,5 +1,12 @@
 `default_nettype none               // mandatory for Verilog sanity
 
+// Xark: Work around no reliable defines
+`ifdef __ICARUS__
+`define SIMULATION
+`elif VERILATOR
+`define SIMULATION
+`endif
+
 module main_ram(
     input  wire        clk,
 
@@ -20,7 +27,7 @@ module main_ram(
 
     always @* bus_rddata = bus_addr14 ? blk32_rddata : blk10_rddata;
 
-`ifndef SYNTHESIS
+`ifdef SIMULATION
     reg [31:0] blk10[0:16383];
     reg [31:0] blk32[0:16383];
 

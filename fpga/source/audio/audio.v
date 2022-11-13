@@ -1,5 +1,12 @@
 `default_nettype none               // mandatory for Verilog sanity
 
+// Xark: Work around no reliable defines
+`ifdef __ICARUS__
+`define SIMULATION
+`elif VERILATOR
+`define SIMULATION
+`endif
+
 module audio(
     input  wire        rst,
     input  wire        clk,
@@ -86,7 +93,7 @@ module audio(
     wire [23:0] left_data = psg_left + pcm_left;
     wire [23:0] right_data = psg_right + pcm_right;
 
-`ifndef SYNTHESIS   // Xark: This is useful for analog visualization in GTKWave
+`ifdef SIMULATION   // Xark: This is useful for analog visualization in GTKWave
     wire [23:0] u_left_data = rst ? 24'hFFFFFF : (left_data ^ 24'h800000);
     wire [23:0] u_right_data = rst ? 24'hFFFFFF : (right_data ^ 24'h800000);
 `endif
