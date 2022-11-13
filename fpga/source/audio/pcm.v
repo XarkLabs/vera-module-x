@@ -21,8 +21,8 @@ module pcm(
     output wire        fifo_empty,
 
     // Audio output
-    output wire [15:0] left_audio,
-    output wire [15:0] right_audio);
+    output wire signed [22:0] left_audio,
+    output wire signed [22:0] right_audio);
 
     //////////////////////////////////////////////////////////////////////////
     // Audio FIFO
@@ -160,7 +160,7 @@ module pcm(
                 state_next        = IDLE;
             end
 
-            default: begin
+            default: begin              // Xark: all cases not covered warning fix
             end
         endcase
 
@@ -192,7 +192,7 @@ module pcm(
     // Volume
     //////////////////////////////////////////////////////////////////////////
 
-    // Logarithmic volume conversion (3dB per step)
+    // Logarithmic volume conversion (2.2dB per step)
     reg signed [7:0] volume_log;
     always @* case (volume)
         4'd0:  volume_log = 8'd0;
@@ -213,17 +213,15 @@ module pcm(
         4'd15: volume_log = 8'd64;
     endcase
 
-    reg signed [21:0] left_scaled_r, right_scaled_r;
-
-    wire unused_bits = &{1'b0, left_scaled_r[5:0], right_scaled_r[5:0]};
+    reg signed [22:0] left_scaled_r, right_scaled_r;
 
     always @(posedge clk) begin
-        left_scaled_r  <= left_output_r  * volume_log;
-        right_scaled_r <= right_output_r * volume_log;
+        left_scaled_r  <= left_output_r  * {volume_log, 1'b0};
+        right_scaled_r <= right_output_r * {volume_log, 1'b0};
     end
 
-    assign left_audio  = left_scaled_r[21:6];
-    assign right_audio = right_scaled_r[21:6];
+    assign left_audio  = left_scaled_r;
+    assign right_audio = right_scaled_r;
 
 endmodule
 `default_nettype wire               // restore default

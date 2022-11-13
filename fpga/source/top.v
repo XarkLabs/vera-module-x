@@ -1,44 +1,11 @@
 `default_nettype none               // mandatory for Verilog sanity
 
 module top(
-`ifndef XARK_UPDUINO
-    input  wire       clk25,
-
-    // External bus interface
-    input  wire       extbus_cs_n,   /* Chip select */
-    input  wire       extbus_rd_n,   /* Read strobe */
-    input  wire       extbus_wr_n,   /* Write strobe */
-    input  wire [4:0] extbus_a,      /* Address */
-`ifndef VERILATOR
-    inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
-`else
-    input  wire [7:0] extbus_d_i,      /* Data (uni-directional for Verilator) */
-    output reg  [7:0] extbus_d_o,      /* Data (uni-directional for Verilator) */
-`endif
-    output wire       extbus_irq_n,  /* IRQ */
-
-    // VGA interface
-    output reg  [3:0] vga_r       /* synthesis syn_useioff = 1 */,
-    output reg  [3:0] vga_g       /* synthesis syn_useioff = 1 */,
-    output reg  [3:0] vga_b       /* synthesis syn_useioff = 1 */,
-    output reg        vga_hsync   /* synthesis syn_useioff = 1 */,
-    output reg        vga_vsync   /* synthesis syn_useioff = 1 */,
-
-    // SPI interface
-    output wire       spi_sck,
-    output wire       spi_mosi,
-    input  wire       spi_miso,
-    output wire       spi_ssel_n_sd,
-
-    // Audio output
-    output wire       audio_lrck,
-    output wire       audio_bck,
-    output wire       audio_data
-`else
+`ifdef XARK_UPDUINO     // Xark: UPduino board signals
 
 //                         UPduino v3.0 pinout for VERA
 //
-//             [VERA]       PCF  Pin#  _____  Pin#  PCF       [VERA]
+//               [VERA]       PCF  Pin#  _____  Pin#  PCF       [VERA]
 //                                ------| USB |------
 //                          <GND> |  1   \___/   48 | spi_ssn   (16)
 //                          <VIO> |  2           47 | spi_sck   (15)
@@ -76,11 +43,11 @@ module top(
 //    input  wire [4:0] extbus_a,      /* Address */
     input  wire       gpio_27, gpio_26, gpio_25, gpio_23, led_blue,     /* Address */
 //    inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
-`ifndef VERILATOR
-    inout wire        gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31,
-`else
+`ifdef VERILATOR   // Xark: Work around Verilator issue with tristate
     input  wire [7:0] extbus_d_i,      /* Data (uni-directional for Verilator) */
     output reg  [7:0] extbus_d_o,      /* Data (uni-directional for Verilator) */
+`else
+    inout wire        gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31,
 `endif
     output wire       gpio_10,      //extbus_irq_n,  /* IRQ */
 
@@ -99,10 +66,45 @@ module top(
     output reg    gpio_48,        // video vga_r[0]
     output reg    gpio_45,        // video vga_g[0]
     output reg    gpio_47         // video vga_b[0]
+
+`else   // Xark: VERA board signals
+
+    input  wire       clk25,
+
+    // External bus interface
+    input  wire       extbus_cs_n,   /* Chip select */
+    input  wire       extbus_rd_n,   /* Read strobe */
+    input  wire       extbus_wr_n,   /* Write strobe */
+    input  wire [4:0] extbus_a,      /* Address */
+`ifdef VERILATOR   // Xark: Work around Verilator issue with tristate
+    input  wire [7:0] extbus_d_i,      /* Data (uni-directional for Verilator) */
+    output reg  [7:0] extbus_d_o,      /* Data (uni-directional for Verilator) */
+`else
+    inout  wire [7:0] extbus_d,      /* Data (bi-directional) */
+`endif
+    output wire       extbus_irq_n,  /* IRQ */
+
+    // VGA interface
+    output reg  [3:0] vga_r       /* synthesis syn_useioff = 1 */,
+    output reg  [3:0] vga_g       /* synthesis syn_useioff = 1 */,
+    output reg  [3:0] vga_b       /* synthesis syn_useioff = 1 */,
+    output reg        vga_hsync   /* synthesis syn_useioff = 1 */,
+    output reg        vga_vsync   /* synthesis syn_useioff = 1 */,
+
+    // SPI interface
+    output wire       spi_sck,
+    output wire       spi_mosi,
+    input  wire       spi_miso,
+    output wire       spi_ssel_n_sd,
+
+    // Audio output
+    output wire       audio_lrck,
+    output wire       audio_bck,
+    output wire       audio_data
 `endif
     );
 
-`ifdef XARK_UPDUINO
+`ifdef XARK_UPDUINO     // Xark: UPduino aliases for VERA signals
     // External bus interface for VERA/UPduino
     wire        extbus_cs_n;   /* Chip select */
     assign      extbus_cs_n = ~(led_red == 1'b0);
@@ -112,7 +114,7 @@ module top(
     assign      extbus_wr_n = ~(led_red == 1'b0 && led_green == 1'b0);
     wire [4:0]  extbus_a;      /* Address */
     assign      extbus_a = {gpio_27, gpio_26, gpio_25, gpio_23, led_blue};
-`ifndef VERILATOR
+`ifndef VERILATOR   // Xark: Work around Verilator issue with tristate
     wire [7:0]  extbus_d;      /* Data (bi-directional) */
     assign      extbus_d = {gpio_28, gpio_38, gpio_42, gpio_36, gpio_43, gpio_34, gpio_37, gpio_31};
 `endif
@@ -175,7 +177,6 @@ module top(
     assign clk25    = gpio_20;
     assign pll_lock = 1'b1;
 `endif
-
 `endif
 
     //////////////////////////////////////////////////////////////////////////
@@ -349,11 +350,11 @@ module top(
 
     wire bus_read  = !extbus_cs_n &&  extbus_wr_n && !extbus_rd_n;
     wire bus_write = !extbus_cs_n && !extbus_wr_n;
-    `ifndef VERILATOR
-    assign extbus_d = bus_read ? rddata : 8'bZ;
-    `else
+`ifdef VERILATOR   // Xark: Work around Verilator issue with tristate
     assign extbus_d_o = rddata;
-    `endif
+`else
+    assign extbus_d = bus_read ? rddata : 8'bZ;
+`endif
 
     wire [3:0] irq_enable = {irq_enable_audio_fifo_low_r, irq_enable_sprite_collision_r, irq_enable_line_r, irq_enable_vsync_r};
     wire [3:0] irq_status = {audio_fifo_low,              irq_status_sprite_collision_r, irq_status_line_r, irq_status_vsync_r};
@@ -371,18 +372,18 @@ module top(
 
     always @(posedge clk) begin
         wraddrp_r <= extbus_a;
-`ifndef VERILATOR
-        wrdatap_r <= extbus_d;
-`else
+`ifdef VERILATOR    // Xark: Work around Verilator issue with tristate
         wrdatap_r <= extbus_d_i;
+`else
+        wrdatap_r <= extbus_d;
 `endif
     end
     always @(negedge clk) begin
         wraddrn_r <= extbus_a;
-`ifndef VERILATOR
-        wrdatan_r <= extbus_d;
-`else
+`ifdef VERILATOR    // Xark: Work around Verilator issue with tristate
         wrdatan_r <= extbus_d_i;
+`else
+        wrdatan_r <= extbus_d;
 `endif
     end
     always @(negedge bus_write) begin
@@ -918,13 +919,21 @@ module top(
         // Interface 1 - 32-bit read only
         .if1_addr(l0_addr),
         .if1_rddata(l0_rddata),
+`ifdef XARK_BUGFIX  // Xark: don't waste VRAM bandwidth on disabled layer (save it for sprites)
+        .if1_strobe(l0_strobe & l0_enabled_r),
+`else
         .if1_strobe(l0_strobe),
+`endif
         .if1_ack(l0_ack),
 
         // Interface 2 - 32-bit read only
         .if2_addr(l1_addr),
         .if2_rddata(l1_rddata),
+`ifdef XARK_BUGFIX  // Xark: don't waste VRAM bandwidth on disabled layer (save it for sprites)
+        .if2_strobe(l1_strobe & l1_enabled_r),
+`else
         .if2_strobe(l1_strobe),
+`endif
         .if2_ack(l1_ack),
 
         // Interface 3 - 32-bit read only
@@ -1229,7 +1238,7 @@ module top(
         .rd_addr_i(composer_display_data),
         .rd_data_o(palette_rgb_data));
 
-`ifndef XARK_UPDUINO
+`ifndef XARK_UPDUINO    // Xark: no composite on UPduino
     //////////////////////////////////////////////////////////////////////////
     // Composite video
     //////////////////////////////////////////////////////////////////////////
@@ -1302,7 +1311,7 @@ module top(
     //////////////////////////////////////////////////////////////////////////
     // Video output selection
     //////////////////////////////////////////////////////////////////////////
-`ifndef XARK_UPDUINO
+`ifndef XARK_UPDUINO    // Xark: no composite on UPduino
     assign next_frame   = video_output_mode_r[1] ? video_composite_next_frame         : video_vga_next_frame;
     assign next_line    = video_output_mode_r[1] ? video_composite_next_line          : video_vga_next_line;
     assign next_pixel   = video_output_mode_r[1] ? video_composite_display_next_pixel : video_vga_display_next_pixel;
@@ -1323,7 +1332,7 @@ module top(
             vga_vsync <= video_vga_vsync;
         end
 
-`ifndef XARK_UPDUINO
+`ifndef XARK_UPDUINO    // Xark: no composite on UPduino
         2'b10: begin
             vga_r     <= video_composite_luma[5:2];
             vga_g     <= {video_composite_luma[1:0], video_composite_chroma2[5:4]};
@@ -1354,13 +1363,13 @@ module top(
     // FPGA reconfiguration
     //////////////////////////////////////////////////////////////////////////
 `ifndef __ICARUS__
-`ifndef XARK_OSS
-    WARMBOOT warmboot(
+`ifdef XARK_OSS     // Xark: Use OSS/iCECube2 compatible primitives
+    SB_WARMBOOT warmboot(
         .S1(1'b0),
         .S0(1'b0),
         .BOOT(fpga_reconfigure_r));
 `else
-    SB_WARMBOOT warmboot(
+    WARMBOOT warmboot(
         .S1(1'b0),
         .S0(1'b0),
         .BOOT(fpga_reconfigure_r));

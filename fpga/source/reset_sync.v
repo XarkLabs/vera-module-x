@@ -7,8 +7,7 @@ module reset_sync(
 
     reg dff_r, dff_rr;
 
-`ifdef XARK_OSS
-    // fix simulation issue where reset undefined so no posedge at start
+`ifdef XARK_OSS // Xark: fix simulation issue where reset undefined so no posedge at start
     initial begin
         dff_r = 1'b0;
         dff_rr = 1'b0;

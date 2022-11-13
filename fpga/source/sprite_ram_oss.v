@@ -1,4 +1,4 @@
-`ifdef XARK_OSS
+`ifdef XARK_OSS     // Xark: infer BRAM vs Radiant generator
 `default_nettype none               // mandatory for Verilog sanity
 
 module sprite_ram(

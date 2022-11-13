@@ -42,7 +42,7 @@ vluint64_t frame_start_time  = 0;
 volatile bool done;
 bool          sim_render    = SDL_RENDER;
 bool          wait_close    = false;
-bool          do_trace      = false;
+bool          do_trace      = true;
 const char *  replay_name   = nullptr;
 const char *  videolog_name = nullptr;
 bool          bus_spam      = false;
@@ -335,8 +335,12 @@ BusCommand TestCommands[] = {
     REG_WR_ARRAY(VERA_DATA0, vera_string, sizeof(vera_string) - 1),
 #endif
 
+    VSYNC(),
+    VSYNC(),
     REG_WR_REPLAY(),
-
+    VSYNC(),
+    VSYNC(),
+    REG_WR(VERA_DC_VIDEO, 0x01),
     VSYNC(),
     VSYNC(),
 
@@ -1016,7 +1020,7 @@ int main(int argc, char ** argv)
         }
         else if (strcmp(argv[nextarg] + 1, "t") == 0)
         {
-            do_trace = true;
+            do_trace = !do_trace;
         }
         else if (strcmp(argv[nextarg] + 1, "r") == 0)
         {
@@ -1052,6 +1056,20 @@ int main(int argc, char ** argv)
         // }
         nextarg += 1;
     }
+
+    log_printf("Options:\n");
+    log_printf("         SDL rendering %s, FST trace %s, fast playback %s, wait to close %s\n",
+               sim_render ? "enabled" : "disabled",
+               do_trace ? "enabled" : "disabled",
+               fast_mode ? "enabled" : "disabled",
+               wait_close ? "enabled" : "disabled");
+
+    log_printf(
+        "         xemu-16 log replay: %s\n"
+        "         LA capture replay: %s\n",
+
+        videolog_name ? videolog_name : "(none)",
+        replay_name ? replay_name : "(none)");
 
     if (replay_name)
     {
@@ -1452,8 +1470,12 @@ int main(int argc, char ** argv)
                             SDL_CreateRGBSurface(0, w, h, 32, 0x00ff0000, 0x0000ff00, 0x000000ff, 0xff000000);
                         SDL_RenderReadPixels(
                             renderer, NULL, SDL_PIXELFORMAT_ARGB8888, screen_shot->pixels, screen_shot->pitch);
-                        sprintf(
-                            save_name, LOGDIR "vera_vsim_%dx%d_f%03d.png", VISIBLE_WIDTH, VISIBLE_HEIGHT, frame_num);
+                        snprintf(save_name,
+                                 sizeof(save_name),
+                                 LOGDIR "vera_vsim_%dx%d_f%03d.png",
+                                 VISIBLE_WIDTH,
+                                 VISIBLE_HEIGHT,
+                                 frame_num);
                         IMG_SavePNG(screen_shot, save_name);
                         SDL_FreeSurface(screen_shot);
                         float fnum = ((1.0 / PIXEL_CLOCK_MHZ) * ((main_time - first_frame_start) / 2)) / 1000.0;

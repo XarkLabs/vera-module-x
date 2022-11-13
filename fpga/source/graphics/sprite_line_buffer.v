@@ -138,7 +138,9 @@ module sprite_line_buffer(
     assign renderer_rd_data = !active_render_buffer ? rd_data_1 : rd_data_2;
     assign composer_rd_data =  active_render_buffer ? rd_data_1 : rd_data_2;
 
+`ifdef XARK_OSS
     wire unused_bits = &{1'b0, wr_addr_1[1:0], wr_addr_2[1:0]};
+`endif
 
 endmodule
 `default_nettype wire               // restore default

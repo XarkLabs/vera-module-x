@@ -12,6 +12,9 @@
 # *.asc          - intermediate ASCII "bistream" from nextpnr-ice40
 # *.bin          - final binary "bitstream" output file used to program FPGA
 
+# NOTE: Set options before make.  E.g., to build with bug-fixes for UPDUINO:
+# $ BUGFIX=true UPDUINO=true make clean bin
+
 # This is a "make hack" have make exit if command fails (even if command after pipe succeeds, e.g., tee)
 SHELL := /bin/bash -o pipefail
 
@@ -84,7 +87,7 @@ YOSYS_OPTS := -e "no driver"
 
 # Yosys synthesis options
 # ("ultraplus" device, enable DSP inferrence, ABC9 logic optimization and explicitly set top module name)
-YOSYS_SYNTH_OPTS := -abc9 -device u -dsp -no-rw-check -top $(TOP)
+YOSYS_SYNTH_OPTS := -abc2 -device u -dsp -no-rw-check -top $(TOP)
 
 # Invokes yosys-config to find the proper path to the iCE40 simulation library
 TECH_LIB := $(shell $(YOSYS_CONFIG) --datdir/ice40/cells_sim.v)
@@ -103,8 +106,12 @@ ifneq ($(UPDUINO),)
 DEFINES += -DXARK_UPDUINO
 endif
 
+ifneq ($(BUGFIX),)
+DEFINES += -DXARK_BUGFIX
+endif
+
 # Note: Using -Os seems to provide the fastest compile+run simulation iteration time
-CFLAGS := -CFLAGS "-Os -std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
+CFLAGS := -CFLAGS "-Os -std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-deprecated-declarations -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
 
 # Verilator tool
 VERILATOR := verilator

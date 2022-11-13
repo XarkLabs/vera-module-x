@@ -3,6 +3,7 @@
 module palette_ram(
     input  wire        wr_clk_i,
     input  wire        rd_clk_i,
+    input  wire        rst_i,
     input  wire        wr_clk_en_i,
     input  wire        rd_en_i,
     input  wire        rd_clk_en_i,
@@ -27,7 +28,7 @@ module palette_ram(
     end
 
     initial begin: INIT
-        $readmemh("palette_ram.mem", mem, 0);
+        $readmemh("../palette_ram.mem", mem, 0);
     end
 
 endmodule

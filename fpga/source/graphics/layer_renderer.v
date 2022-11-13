@@ -432,16 +432,16 @@ module layer_renderer(
     reg [7:0] cur_pixel_data_8bpp;
     always @* case (hflipped_xcnt[1:0])
         // Byte 0
-        2'd0: cur_pixel_data_8bpp = render_data_r[7:0];
+        2'd0: cur_pixel_data_8bpp = render_data_r[7:0];     // Xark: width fix
 
         // Byte 1
-        2'd1: cur_pixel_data_8bpp = render_data_r[15:8];
+        2'd1: cur_pixel_data_8bpp = render_data_r[15:8];    // Xark: width fix
 
         // Byte 2
-        2'd2: cur_pixel_data_8bpp = render_data_r[23:16];
+        2'd2: cur_pixel_data_8bpp = render_data_r[23:16];   // Xark: width fix
 
         // Byte 3
-        2'd3: cur_pixel_data_8bpp = render_data_r[31:24];
+        2'd3: cur_pixel_data_8bpp = render_data_r[31:24];   // Xark: width fix
     endcase
 
     // Select current pixel based on current color depth
@@ -496,9 +496,9 @@ module layer_renderer(
     // -----------------------------------------------------------------------
     // The start position of the rendering in the line buffer depends on the
     // horizontal scroll position and the selected horizontal pixel scaling.
-    wire [3:0] subtile_hscroll = tile_width ? hscroll[3:0] : {1'b0, hscroll[2:0]};
+    wire [3:0] subtile_hscroll = tile_width ? hscroll[3:0] : {1'b0, hscroll[2:0]};  // Xark: width fix
 
-    wire [9:0] lb_wridx_start = 10'd0 - {6'b0, subtile_hscroll};
+    wire [9:0] lb_wridx_start = 10'd0 - {6'b0, subtile_hscroll};                    // Xark: width fix
     // -----------------------------------------------------------------------
 
 

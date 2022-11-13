@@ -31,7 +31,9 @@ module sprite_renderer(
     output wire [15:0] linebuf_wrdata,
     output wire        linebuf_wren);
 
+`ifdef XARK_OSS     // Xark: Verilator unused bit warnings
     wire unused_bits = &{1'b0, sprite_attr[14:12], linebuf_rddata[11:10]};
+`endif
 
     reg [3:0] cur_collision_mask_r,   cur_collision_mask_next;
     reg [3:0] frame_collision_mask_r, frame_collision_mask_next;

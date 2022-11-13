@@ -33,30 +33,30 @@ module main_ram(
     always @(posedge clk) begin
         if (bus_write && blk10_cs) begin
             if (bus_wrbytesel[0]) begin
-                blk10[bus_addr[13:0]][7:0] <= bus_wrdata[7:0];
+                blk10[bus_addr[13:0]][7:0] <= bus_wrdata[7:0];      // Xark: width & non-blocking assignment fixes
             end
             if (bus_wrbytesel[1]) begin
-                blk10[bus_addr[13:0]][15:8] <= bus_wrdata[15:8];
+                blk10[bus_addr[13:0]][15:8] <= bus_wrdata[15:8];    // Xark: width & non-blocking assignment fixes
             end
             if (bus_wrbytesel[2]) begin
-                blk10[bus_addr[13:0]][23:16] <= bus_wrdata[23:16];
+                blk10[bus_addr[13:0]][23:16] <= bus_wrdata[23:16];  // Xark: width & non-blocking assignment fixes
             end
             if (bus_wrbytesel[3]) begin
-                blk10[bus_addr[13:0]][31:24] <= bus_wrdata[31:24];
+                blk10[bus_addr[13:0]][31:24] <= bus_wrdata[31:24];  // Xark: width & non-blocking assignment fixes
             end
         end
         if (bus_write && blk32_cs) begin
             if (bus_wrbytesel[0]) begin
-                blk32[bus_addr[13:0]][7:0] <= bus_wrdata[7:0];
+                blk32[bus_addr[13:0]][7:0] <= bus_wrdata[7:0];      // Xark: width & non-blocking assignment fixes
             end
             if (bus_wrbytesel[1]) begin
-                blk32[bus_addr[13:0]][15:8] <= bus_wrdata[15:8];
+                blk32[bus_addr[13:0]][15:8] <= bus_wrdata[15:8];    // Xark: width & non-blocking assignment fixes
             end
             if (bus_wrbytesel[2]) begin
-                blk32[bus_addr[13:0]][23:16] <= bus_wrdata[23:16];
+                blk32[bus_addr[13:0]][23:16] <= bus_wrdata[23:16];  // Xark: width & non-blocking assignment fixes
             end
             if (bus_wrbytesel[3]) begin
-                blk32[bus_addr[13:0]][31:24] <= bus_wrdata[31:24];
+                blk32[bus_addr[13:0]][31:24] <= bus_wrdata[31:24];  // Xark: width & non-blocking assignment fixes
             end
         end
 
@@ -80,7 +80,7 @@ module main_ram(
     end
 
 `else
-`ifdef XARK_OSS
+`ifdef XARK_OSS     // Xark: Use OSS/iCECube2 compatible primitives
     SB_SPRAM256KA blk0(
         .CLOCK(clk),
         .ADDRESS(bus_addr[13:0]),
@@ -128,7 +128,8 @@ module main_ram(
         .STANDBY(1'b0),
         .SLEEP(1'b0),
         .POWEROFF(1'b1));
-`else
+
+`else   // Xark: Radiant primitives
 
     SP256K blk0(
         .CK(clk),

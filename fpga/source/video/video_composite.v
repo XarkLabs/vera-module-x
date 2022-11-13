@@ -45,12 +45,12 @@ module video_composite(
     wire h_hsync_pulse = (hcnt < H_SYNC);
 
     wire h_vsync_pulse =
-        (hcnt < H_VSYNC_PULSE_LEN) ||
-        (hcnt >= H_HALF && hcnt < H_HALF + H_VSYNC_PULSE_LEN);  // Xark NOTE: hcnt >= 0 was always true
+        (hcnt < H_VSYNC_PULSE_LEN) ||                             // Xark NOTE: hcnt >= 0 always true warning
+        (hcnt >= H_HALF && hcnt < H_HALF + H_VSYNC_PULSE_LEN);
 
     wire h_equalization_pulse =
-        (hcnt < H_EQUALIZATION_PULSE_LEN) ||
-        (hcnt >= H_HALF && hcnt < H_HALF + H_EQUALIZATION_PULSE_LEN);  // Xark NOTE: hcnt >= 0 was always true
+        (hcnt < H_EQUALIZATION_PULSE_LEN) ||                    // Xark NOTE: hcnt >= 0 always true warning
+        (hcnt >= H_HALF && hcnt < H_HALF + H_EQUALIZATION_PULSE_LEN);
 
     wire h_color_burst =
         (hcnt >= H_COLOR_BURST_START && hcnt < H_COLOR_BURST_END);
@@ -81,10 +81,10 @@ module video_composite(
         (vcnt >= 531 && vcnt <= 536);
 
     wire v_equalization =
-        (vcnt <=   5) ||
+        (vcnt <=   5) ||                // Xark NOTE: vcnt >= 0 always true warning
         (vcnt >=  12 && vcnt <=  17) ||
         (vcnt >= 525 && vcnt <= 530) ||
-        (vcnt >= 537 && vcnt <= 542);   // Xark NOTE: vcnt >= 0 was always true
+        (vcnt >= 537 && vcnt <= 542);
     
     wire v_active =
         (vcnt >=   38+4 && vcnt <=  524-3) ||   // 240 lines
