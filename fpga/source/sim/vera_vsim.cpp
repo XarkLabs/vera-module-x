@@ -17,17 +17,22 @@
 #include "Vtop.h"
 
 #include "verilated_fst_c.h"        // for VM_TRACE
-#include <SDL.h>                    // for SDL_RENDER
+
+#if !defined(SDL_RENDER)
+#define SDL_RENDER 0
+#endif
+
+#if SDL_RENDER
+#include <SDL.h>        // for SDL_RENDER window and PNGs
 #include <SDL_image.h>
+#else
+#include "svpng/svpng.inc"        // for just PNGs
+#endif
 
 #include "iso_charset.h"
 
 #if !defined(NUM_ELEMENTS)
 #define NUM_ELEMENTS(a) (sizeof(a) / sizeof(a[0]))
-#endif
-
-#if !defined(SDL_RENDER)
-#define SDL_RENDER 0
 #endif
 
 #define LOGDIR "sim/logs/"
@@ -50,6 +55,36 @@ int           cmd_rep_spam  = 8;
 bool          fast_mode     = false;
 bool          shot_all      = true;        // screenshot all frames
 
+#if !SDL_RENDER        // setup for svpng PNG saving
+#define MAX_PNG_RES 1024
+uint8_t   png_rgba[TOTAL_HEIGHT * TOTAL_WIDTH * 4];
+
+void png_pixel(int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
+{
+    if (x < 0 || x >= TOTAL_WIDTH || y < 0 || y >= TOTAL_HEIGHT)
+    {
+        return;
+    }
+    png_rgba[(y * TOTAL_WIDTH * 4) + (x * 4) + 0] = r;
+    png_rgba[(y * TOTAL_WIDTH * 4) + (x * 4) + 1] = g;
+    png_rgba[(y * TOTAL_WIDTH * 4) + (x * 4) + 2] = b;
+    png_rgba[(y * TOTAL_WIDTH * 4) + (x * 4) + 3] = a;
+}
+
+void png_clear()
+{
+    for (int y = 0; y < TOTAL_HEIGHT; y++)
+    {
+        for (int x = 0; x < TOTAL_WIDTH; x++)
+        {
+            png_pixel(x, y, 0, 0, 0, 0xff);
+        }
+    }
+}
+#endif
+
+// logic analyzer playback
+
 #define MISC_VPB  0x01
 #define MISC_IO7  0x02
 #define MISC_IRQB 0x04
@@ -66,6 +101,10 @@ struct CSVSignals
     uint8_t  data;
     uint8_t  misc;
 };
+std::vector<CSVSignals> csv_data;
+char                    csv_line[8192];
+
+// video log playback
 
 struct ReplaySignals
 {
@@ -74,10 +113,7 @@ struct ReplaySignals
     uint8_t  data;
     uint8_t  rwb;
 };
-
-std::vector<CSVSignals>    csv_data;
 std::vector<ReplaySignals> replay_data;
-char                       csv_line[8192];
 
 bool vsync_detect = false;
 bool hsync_detect = false;
@@ -1361,7 +1397,8 @@ int main(int argc, char ** argv)
     }
 
     bool take_shot = false;
-
+#else
+    png_clear();
 #endif        // SDL_RENDER
 
     int  current_x          = 0;
@@ -1420,6 +1457,13 @@ int main(int argc, char ** argv)
                 SDL_RenderDrawPoint(renderer, current_x, current_y);
             }
         }
+#else
+        png_pixel(current_x,
+                  current_y,
+                  (TOP_red << 4) | TOP_red,
+                  (TOP_green << 4) | TOP_green,
+                  (TOP_blue << 4) | TOP_blue,
+                  255);
 #endif
 
 #if 1
@@ -1508,6 +1552,33 @@ int main(int argc, char ** argv)
                     SDL_SetRenderDrawColor(renderer, 0x20, 0x20, 0x20, 0xff);
                     SDL_RenderClear(renderer);
                 }
+#else
+                if (shot_all || frame_num == MAX_TRACE_FRAMES)
+                {
+                    char save_name[256] = {0};
+                    snprintf(save_name,
+                             sizeof(save_name),
+                             LOGDIR "vera_vsim_%dx%d_f%03d.png",
+                             VISIBLE_WIDTH,
+                             VISIBLE_HEIGHT,
+                             frame_num);
+                    FILE * pfp = fopen(save_name, "w");
+                    if (pfp != nullptr)
+                    {
+                        svpng(pfp, TOTAL_WIDTH, TOTAL_HEIGHT, png_rgba, 1);
+                        fclose(pfp);
+                    }
+                    float fnum = ((1.0 / PIXEL_CLOCK_MHZ) * ((main_time - first_frame_start) / 2)) / 1000.0;
+                    log_printf("[@t=%8lu] %8.03f ms frame #%3u saved as \"%s\" (%dx%d)\n",
+                               main_time / 2,
+                               fnum,
+                               frame_num,
+                               save_name,
+                               TOTAL_WIDTH,
+                               TOTAL_HEIGHT);
+                }
+
+
 #endif
             }
             frame_start_time = main_time;

@@ -93,11 +93,18 @@ YOSYS_SYNTH_OPTS := -abc2 -device u -dsp -no-rw-check -top $(TOP)
 TECH_LIB := $(shell $(YOSYS_CONFIG) --datdir/ice40/cells_sim.v)
 
 # Verilator C++ definitions and options
+ifeq (, $(shell command -v sdl2-config))
+SDL_RENDER := 0
+$(info NOTE: No sdl2-config found in path, SDL window render disabled)
+else
+
+ifneq ($(strip $(SDL_RENDER)),0)
 SDL_RENDER := 1
-ifeq ($(strip $(SDL_RENDER)),1)
 LDFLAGS := -LDFLAGS "$(shell sdl2-config --libs) -lSDL2_image"
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 endif
+endif
+
 # SystemVerilog preprocessor definitions common to all modules (this prevents spurious warnings in TECH_LIB files)
 #DEFINES := -DXARK_OSS  -DNO_ICE40_DEFAULT_ASSIGNMENTS
 DEFINES := -DNO_ICE40_DEFAULT_ASSIGNMENTS -DXARK_OSS 
