@@ -13,8 +13,23 @@ This [repository branch](https://github.com/XarkLabs/vera-module-x/tree/oss-x) i
 
 For OSS tools, build from `cd fpga` and you can specify options on command line:
 
+Synthesis:
 ```bash
 UPDUINO=true BUGFIX=true make clean bin
+```
+
+Simulation with Verilator:
+```bash
+BUGFIX=true VRUN_OPTS="-v emuvlog.vrp" make clean vrun
+```
+> :warning: NOTE
+>
+> x16-emu needs a small patch to generate compatible video log [fpga/source/sim/x16-emu_video_log.patch](./fpga/source/sim/x16-emu_video_log.patch)
+
+
+Simulation with Icarus Verilog:
+```bash
+BUGFIX=true make clean irun
 ```
 
 It should also still build normally for VERA board with Lattice Radiant (optionally you can `` `define XARK_BUGFIX`` to enable fixes).

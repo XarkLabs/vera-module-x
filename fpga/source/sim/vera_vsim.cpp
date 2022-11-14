@@ -1042,7 +1042,7 @@ int main(int argc, char ** argv)
             }
             videolog_name = argv[nextarg];
         }
-        // if (strcmp(argv[nextarg] + 1, "u") == 0)
+        // else if (strcmp(argv[nextarg] + 1, "u") == 0)
         // {
         //     nextarg += 1;
         //     if (nextarg >= argc)
@@ -1054,6 +1054,21 @@ int main(int argc, char ** argv)
         //     upload_name[num_uploads] = argv[nextarg];
         //     num_uploads++;
         // }
+        else
+        {
+            printf("Unexpected option: %s\n", argv[nextarg]);
+
+            printf("Options:\n");
+            printf("         -n     Disable SDL rendering (no window)\n");
+            printf("         -f     Fast playback mode (ignore timestamp, until VERA_AUDIO_CTRL)\n");
+            printf("         -w     Wait for keypress before closing window\n");
+            printf("         -t     Disable FST trace file generation (faster)\n");
+            printf("         -r     Replay logic analyzer capture (Wavicle format)\n");
+            printf("         -v     Replay x16-emu video log (needs x16-emu change to generate)\n");
+            printf("\n");
+
+            exit(EXIT_FAILURE);
+        }
         nextarg += 1;
     }
 
