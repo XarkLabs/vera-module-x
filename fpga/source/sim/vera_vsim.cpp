@@ -323,7 +323,7 @@ BusCommand TestCommands[] = {
     REG_WR(VERA_ADDR_H, 0x20 | ((VERA_CHARMAP_BASE >> 16) & 0x01)),        // addr $0mmll incr +2
     REG_WR_VALUE(VERA_DATA0, 0x20, 128 * 64),
 
-    REG_WR(VERA_ADDR_L, 1 + VERA_CHARMAP_BASE & 0xFF),                     // addr $hmm00
+    REG_WR(VERA_ADDR_L, (VERA_CHARMAP_BASE + 1) & 0xFF),                   // addr $hmm00
     REG_WR(VERA_ADDR_M, (VERA_CHARMAP_BASE >> 8) & 0xFF),                  // addr $h00ll
     REG_WR(VERA_ADDR_H, 0x20 | ((VERA_CHARMAP_BASE >> 16) & 0x01)),        // addr $0mmll incr +2
     REG_WR_VALUE(VERA_DATA0, 0x61, 128 * 64),
