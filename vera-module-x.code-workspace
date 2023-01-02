@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"*.sv": "systemverilog",
+			"*.asm": "vasmmot",
+			"vector": "cpp",
+			"__tuple": "cpp"
+		}
+	}
+}

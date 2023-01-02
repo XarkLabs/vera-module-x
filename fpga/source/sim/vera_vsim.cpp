@@ -57,7 +57,7 @@ bool          shot_all      = true;        // screenshot all frames
 
 #if !SDL_RENDER        // setup for svpng PNG saving
 #define MAX_PNG_RES 1024
-uint8_t   png_rgba[TOTAL_HEIGHT * TOTAL_WIDTH * 4];
+uint8_t png_rgba[TOTAL_HEIGHT * TOTAL_WIDTH * 4];
 
 void png_pixel(int x, int y, uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {
@@ -1029,6 +1029,10 @@ int main(int argc, char ** argv)
         printf("can't create " LOGDIR "vera_vsim.log\n");
         exit(EXIT_FAILURE);
     }
+    else
+    {
+        printf("Output in: " LOGDIR "\n");
+    }
 
     double Hz = 1000000.0 / ((TOTAL_WIDTH * TOTAL_HEIGHT) * (1.0 / PIXEL_CLOCK_MHZ));
     log_printf("\n%s simulation. Video VGA %dx%d@%0.03f Hz (pixel clock %0.03f MHz)\n",
@@ -1361,15 +1365,7 @@ int main(int argc, char ** argv)
 
     VerilatedFstC * tfp = new VerilatedFstC;
 
-    if (do_trace)
-    {
-        const auto trace_path = LOGDIR "vera_vsim.fst";
-        log_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
-        Verilated::traceEverOn(true);
-
-        top->trace(tfp, 99);        // trace to heirarchal depth of 99
-        tfp->open(trace_path);
-    }
+    do_trace = false;
 
 #if SDL_RENDER
     SDL_Renderer * renderer = nullptr;
@@ -1412,12 +1408,29 @@ int main(int argc, char ** argv)
     int  vsync_count  = 0;
     bool image_loaded = false;
 
-    bool last_hsync = false;
-    bool last_vsync = false;
-    bool hsync      = false;
-    bool vsync      = false;
+    bool last_hsync    = false;
+    bool last_vsync    = false;
+    bool hsync         = false;
+    bool vsync         = false;
+    bool trace_started = false;
     while (!done && !Verilated::gotFinish())
     {
+        if (frame_num >= 3)
+        {
+            do_trace = true;
+        }
+        if (do_trace && !trace_started)
+        {
+            const auto trace_path = LOGDIR "vera_vsim.fst";
+            log_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
+            Verilated::traceEverOn(true);
+
+            top->trace(tfp, 99);        // trace to heirarchal depth of 99
+            tfp->open(trace_path);
+            trace_started = true;
+        }
+
+
         process_bus(top);
 
         TOP_clk = 1;        // clock rising
