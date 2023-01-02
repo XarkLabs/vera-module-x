@@ -103,7 +103,7 @@ module composer(
 
         end else begin
             line_irq <= display_next_line && (
-                (!interlaced && y_counter_r == {1'b0, irqline} )  ||
+                (!interlaced && y_counter_r == irqline) ||
                 ( interlaced && y_counter_r[9:1] == {1'b0, irqline[8:1]}));
         end
     end
