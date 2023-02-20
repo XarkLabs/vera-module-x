@@ -367,7 +367,11 @@ module top(
     reg [7:0] wrdata_r;
 
     always @(negedge bus_write) begin
+`ifdef VERILATOR    // Xark: Work around Verilator issue with tristate
+        wrdata_r <= extbus_d_i;
+`else
         wrdata_r <= extbus_d;
+`endif
     end
     always @(posedge bus_write) begin
         wraddr_r <= extbus_a;
