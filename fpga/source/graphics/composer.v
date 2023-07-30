@@ -103,7 +103,7 @@ module composer(
 
         end else begin
             line_irq <= display_next_line && (
-                (!interlaced && y_counter_r == irqline) ||
+                (!interlaced && y_counter_r == 10'(irqline)) ||
                 ( interlaced && y_counter_r[9:1] == {1'b0, irqline[8:1]}));
         end
     end
@@ -134,11 +134,7 @@ module composer(
 
     // Determine the active area of the screen where the border isn't shown
     wire hactive = (x_counter >= active_hstart) && (x_counter < active_hstop);
-`ifdef XARK_BUGFIX  // show border color when past last physical line (vs last line repeated)
-    wire vactive = (y_counter >= {1'b0, active_vstart}) && (y_counter < {1'b0, active_vstop} && (scaled_y_counter < 'd480));
-`else
     wire vactive = (y_counter >= {1'b0, active_vstart}) && (y_counter < {1'b0, active_vstop});  // Xark: width fix
-`endif
     reg display_active;
     always @(posedge clk) display_active <= hactive && vactive;     // Xark: fixed non-blocking assignment
 

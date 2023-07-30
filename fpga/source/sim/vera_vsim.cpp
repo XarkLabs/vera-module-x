@@ -1413,21 +1413,22 @@ int main(int argc, char ** argv)
     bool hsync         = false;
     bool vsync         = false;
     bool trace_started = false;
+
+    if (true)
+    {
+        const auto trace_path = LOGDIR "vera_vsim.fst";
+        log_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
+        Verilated::traceEverOn(true);
+
+        top->trace(tfp, 99);        // trace to heirarchal depth of 99
+        tfp->open(trace_path);
+        trace_started = true;
+    }
     while (!done && !Verilated::gotFinish())
     {
         if (frame_num >= 3)
         {
             do_trace = true;
-        }
-        if (do_trace && !trace_started)
-        {
-            const auto trace_path = LOGDIR "vera_vsim.fst";
-            log_printf("Writing FST waveform file to \"%s\"...\n", trace_path);
-            Verilated::traceEverOn(true);
-
-            top->trace(tfp, 99);        // trace to heirarchal depth of 99
-            tfp->open(trace_path);
-            trace_started = true;
         }
 
 
@@ -1436,21 +1437,13 @@ int main(int argc, char ** argv)
         TOP_clk = 1;        // clock rising
         top->eval();
 
-        if (do_trace)
-        {
-            if (frame_num <= MAX_TRACE_FRAMES)
-                tfp->dump(main_time);
-        }
+        tfp->dump(main_time);
         main_time++;
 
         TOP_clk = 0;        // clock falling
         top->eval();
 
-        if (do_trace)
-        {
-            if (frame_num <= MAX_TRACE_FRAMES)
-                tfp->dump(main_time);
-        }
+        tfp->dump(main_time);
         main_time++;
 
         last_hsync = hsync;
@@ -1633,10 +1626,7 @@ int main(int argc, char ** argv)
 
     top->final();
 
-    if (do_trace)
-    {
-        tfp->close();
-    }
+    tfp->close();
 
     wav_end();
 

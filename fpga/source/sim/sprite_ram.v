@@ -41,7 +41,7 @@ module sprite_ram(
         mem[3][9:0]   = 10'd3;   // y
         mem[3][16]    = 0;       // hflip
         mem[3][17]    = 0;       // vflip
-        mem[3][19:18] = 3'd1;    // z
+        mem[3][19:18] = 2'd1;    // z       // width fix
         mem[3][23:20] = 0;       // collision mask
         mem[3][27:24] = 0;       // palette offset
         mem[3][29:28] = 2'd2;    // width

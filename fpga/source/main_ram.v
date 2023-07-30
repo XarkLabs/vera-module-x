@@ -3,7 +3,7 @@
 // Xark: Work around no reliable defines
 `ifdef __ICARUS__
 `define SIMULATION
-`elif VERILATOR
+`elsif VERILATOR
 `define SIMULATION
 `endif
 

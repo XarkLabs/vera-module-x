@@ -31,9 +31,9 @@ module sprite_renderer(
     output wire [15:0] linebuf_wrdata,
     output wire        linebuf_wren);
 
-`ifdef XARK_OSS     // Xark: Verilator unused bit warnings
-    wire unused_bits = &{1'b0, sprite_attr[14:12], linebuf_rddata[11:10]};
-`endif
+// `ifdef XARK_OSS     // Xark: Verilator unused bit warnings
+//     wire unused_bits = &{1'b0, sprite_attr[14:12], linebuf_rddata[11:10]};
+// `endif
 
     reg [3:0] cur_collision_mask_r,   cur_collision_mask_next;
     reg [3:0] frame_collision_mask_r, frame_collision_mask_next;
@@ -112,7 +112,7 @@ module sprite_renderer(
 
     // Determine if sprite is on current line
     wire [9:0] ydiff          = {1'b0, line_idx} - sprite_attr_y;
-    wire       sprite_on_line = ydiff <= {4'b0, sprite_height_pixels};
+    wire       sprite_on_line = ydiff <= {4'b0, sprite_height_pixels};      // width fix
     wire       sprite_enabled = sprite_attr_z != 2'd0;
     wire [5:0] sprite_line    = sprite_attr_vflip ? (sprite_height_pixels - ydiff[5:0]) : ydiff[5:0];
 
@@ -243,7 +243,7 @@ module sprite_renderer(
     wire [5:0] hflipped_xcnt      = sprite_hflip_r ? ~xcnt_r    : xcnt_r;
     wire [5:0] hflipped_xcnt_next = sprite_hflip_r ? ~xcnt_next : xcnt_next;
 
-    wire unused_bits2 = &{1'b0, hflipped_xcnt[5:3], hflipped_xcnt_next[1:0]};
+//    wire unused_bits2 = &{1'b0, hflipped_xcnt[5:3], hflipped_xcnt_next[1:0]};
 
     // Determine address of current sprite line
     reg [14:0] line_addr_tmp;
@@ -300,16 +300,16 @@ module sprite_renderer(
     reg [7:0] cur_pixel_data_8bpp;
     always @* case (hflipped_xcnt[1:0])
         // Byte 0
-        2'd0: cur_pixel_data_8bpp = render_data_r[7:0];
+        2'd0: cur_pixel_data_8bpp = render_data_r[7:0];     // width fix
 
         // Byte 1
-        2'd1: cur_pixel_data_8bpp = render_data_r[15:8];
+        2'd1: cur_pixel_data_8bpp = render_data_r[15:8];    // width fix
 
         // Byte 2
-        2'd2: cur_pixel_data_8bpp = render_data_r[23:16];
+        2'd2: cur_pixel_data_8bpp = render_data_r[23:16];   // width fix
 
         // Byte 3
-        2'd3: cur_pixel_data_8bpp = render_data_r[31:24];
+        2'd3: cur_pixel_data_8bpp = render_data_r[31:24];   // width fix
     endcase
 
     // Select current pixel based on current color depth

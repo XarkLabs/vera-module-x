@@ -7,6 +7,8 @@ module video_composite(
     // Line buffer / palette interface
     input  wire [11:0] palette_rgb_data,
 
+    input wire interlace,
+
     output wire        next_frame,
     output wire        next_line,
     output wire        next_pixel,
@@ -21,15 +23,17 @@ module video_composite(
     output wire  [3:0] rgb_r,
     output wire  [3:0] rgb_g,
     output wire  [3:0] rgb_b,
-    output wire        rgb_sync_n);
+    output wire        rgb_sync_n,
+    output wire        rgb_hsync,
+    output wire        rgb_vsync);
 
     //
     // Video timing (NTSC 60Hz)
     //
     parameter H_SYNC            = 118;
-    parameter H_BACK_PORCH      = 152;
+    parameter H_BACK_PORCH      = 152 - (152-118);
     parameter H_ACTIVE          = 1280;
-    parameter H_FRONT_PORCH     = 38;
+    parameter H_FRONT_PORCH     = 38 + (152-118);
     parameter H_TOTAL           = H_SYNC + H_BACK_PORCH + H_ACTIVE + H_FRONT_PORCH;
 
     parameter H_HALF                   = H_TOTAL / 2;
@@ -45,11 +49,11 @@ module video_composite(
     wire h_hsync_pulse = (hcnt < H_SYNC);
 
     wire h_vsync_pulse =
-        (hcnt < H_VSYNC_PULSE_LEN) ||                             // Xark NOTE: hcnt >= 0 always true warning
+        (hcnt >= 0      && hcnt < H_VSYNC_PULSE_LEN) ||                 // BUG: unsigned hcnt >= 0 always true?
         (hcnt >= H_HALF && hcnt < H_HALF + H_VSYNC_PULSE_LEN);
 
     wire h_equalization_pulse =
-        (hcnt < H_EQUALIZATION_PULSE_LEN) ||                    // Xark NOTE: hcnt >= 0 always true warning
+        (hcnt >= 0      && hcnt < H_EQUALIZATION_PULSE_LEN) ||          // BUG: unsigned hcnt >= 0 always true?
         (hcnt >= H_HALF && hcnt < H_HALF + H_EQUALIZATION_PULSE_LEN);
 
     wire h_color_burst =
@@ -62,39 +66,54 @@ module video_composite(
     // Vertical video timing (NTSC 60Hz):
     //
     // field1 (even):
-    //      0-5 equalization
-    //     6-11 vsync
-    //    12-17 equalization
-    //    18-37 blank active
-    //   38-524 active     (243,5 lines)
+    //       480i                         |       240p (263 line mode)
+    // -----------------------------------+----------------------------------
+    //      0-5 equalization              |       0-5 equalization
+    //     6-11 vsync                     |      6-11 vsync
+    //    12-17 equalization              |     12-17 equalization
+    //    18-37 blank active              |     18-37 blank active
+    //   38-524 active     (243,5 lines)  |    38-525 active     (244 lines)
     //
     // field2 (odd):
-    //  525-530 equalization
-    //  531-536 vsync
-    //  537-542 equalization
-    //  543-562 blank active
-    // 563-1049 active     (243,5 lines)
+    //       480i                         |       240p (263 line mode)
+    // -----------------------------------+----------------------------------
+    //  525-530 equalization              |   526-531 equalization
+    //  531-536 vsync                     |   532-537 vsync
+    //  537-542 equalization              |   538-543 equalization
+    //  543-562 blank active              |   544-563 blank active
+    // 563-1049 active     (243,5 lines)  |  564-1051 active     (244 lines)
+    //
+    // Most 240p implementations use the 262 line mode, however the 263 line mode
+    // uses the same composite sync signalling as 480i so 263 line mode is used
+    // here.
+
+
+    wire line_mode = interlace;
 
     reg [10:0] vcnt = 0;  // half-lines
     wire v_sync =
         (vcnt >=   6 && vcnt <=  11) ||
-        (vcnt >= 531 && vcnt <= 536);
+        (vcnt >= (531+11'(line_mode)) && vcnt <= (536+11'(line_mode)));
 
     wire v_equalization =
-        (vcnt <=   5) ||                // Xark NOTE: vcnt >= 0 always true warning
+        (vcnt >=   0 && vcnt <=   5) ||                                 // BUG: unsigned vcnt always >= 0?
         (vcnt >=  12 && vcnt <=  17) ||
-        (vcnt >= 525 && vcnt <= 530) ||
-        (vcnt >= 537 && vcnt <= 542);
+        (vcnt >= (525+11'(line_mode)) && vcnt <= (530+11'(line_mode))) ||
+        (vcnt >= (537+11'(line_mode)) && vcnt <= (542+11'(line_mode)));
 
     wire v_active =
-        (vcnt >=   38+4 && vcnt <=  524-3) ||   // 240 lines
-        (vcnt >=  563+5 && vcnt <= 1049-2);     // 240 lines
+        (vcnt >=   38+4 && vcnt <=  (524+11'(line_mode))-3) ||   // 240 lines
+        (vcnt >=  563+5 && vcnt <= (1049+11'(line_mode))-2);     // 240 lines
+
+    wire v_burst_active =
+        (vcnt >=   38+4-20 && vcnt <=  (524+11'(line_mode))-3) ||   // 240 lines
+        (vcnt >=  563+5-20 && vcnt <= (1049+11'(line_mode))-2);     // 240 lines
 
     reg field; // 0: even, 1: odd
 
     wire v_last2           = (vcnt == 38+3 || vcnt == 563+4);
-    wire v_last            = (vcnt == 1049);
-    wire v_even_field_last = (vcnt == 524);
+    wire v_last            = (vcnt == (1049+{8'b0,line_mode,1'b0}));
+    wire v_even_field_last = (vcnt == (524+11'(line_mode)));
 
     assign next_line     = (hcnt == H_SYNC + H_BACK_PORCH - 1);
 
@@ -118,7 +137,7 @@ module video_composite(
     assign current_field = current_field_r;
 
 
-    assign vblank_pulse  = h_half_line_last && (vcnt == 524 || vcnt == 1049);
+    assign vblank_pulse  = h_half_line_last && (vcnt == (524+11'(line_mode)) || vcnt == (1049+{8'b0,line_mode,1'b0}));
 
     always @(posedge clk or posedge rst) begin
         if (rst) begin
@@ -171,7 +190,7 @@ module video_composite(
         .r(r),
         .g(g),
         .b(b),
-        .color_burst(v_active && h_color_burst),
+        .color_burst(v_burst_active && h_color_burst),
         .active(v_active && h_active),
         .sync_n_in(mod_sync_n),
 
@@ -182,6 +201,8 @@ module video_composite(
     assign rgb_g = g;
     assign rgb_b = b;
     assign rgb_sync_n = mod_sync_n;
+    assign rgb_hsync = !h_hsync_pulse;
+    assign rgb_vsync = !v_sync;
 
 endmodule
 `default_nettype wire               // restore default

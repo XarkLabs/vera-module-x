@@ -107,7 +107,7 @@ endif
 
 # SystemVerilog preprocessor definitions common to all modules (this prevents spurious warnings in TECH_LIB files)
 #DEFINES := -DXARK_OSS  -DNO_ICE40_DEFAULT_ASSIGNMENTS
-DEFINES := -DNO_ICE40_DEFAULT_ASSIGNMENTS -DXARK_OSS 
+DEFINES := -DNO_ICE40_DEFAULT_ASSIGNMENTS -DXARK_OSS
 
 ifneq ($(UPDUINO),)
 DEFINES += -DXARK_UPDUINO
@@ -118,7 +118,7 @@ DEFINES += -DXARK_BUGFIX
 endif
 
 # Note: Using -Os seems to provide the fastest compile+run simulation iteration time
-CFLAGS := -CFLAGS "-Os -std=c++14 -Wall -Wextra -Werror -fomit-frame-pointer -Wno-deprecated-declarations -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
+CFLAGS := -CFLAGS "-Os -std=c++14 -Wall -Wextra -fomit-frame-pointer -Wno-deprecated-declarations -Wno-sign-compare -Wno-unused-parameter -Wno-unused-variable -Wno-int-in-bool-context -Wno-bool-operation -DSDL_RENDER=$(SDL_RENDER) $(SDL_CFLAGS) $(DEFINES)"
 
 # Verilator tool
 VERILATOR := verilator
@@ -139,7 +139,7 @@ IVERILOG := iverilog
 VVP := vvp
 # Icarus Verilog options
 # (language version, include directory, library directory, warning & error options)
-IVERILOG_OPTS := -g2012 -Wall -Wno-portbind -Wno-timescale -l$(TECH_LIB) -I$(INCDIR) 
+IVERILOG_OPTS := -g2012 -Wall -Wno-portbind -Wno-timescale -l$(TECH_LIB) -I$(INCDIR)
 
 # nextpnr iCE40 tool
 NEXTPNR := nextpnr-ice40
@@ -163,6 +163,8 @@ info:
 	@echo "    make count      - show design resource usage counts"
 	@echo "    make isim       - build Icarus Verilog simulation for design"
 	@echo "    make irun       - run Icarus Verilog simulation for design"
+	@echo "    make vsim       - build Verilator Verilog C++ simulation for design"
+	@echo "    make vrun       - run Verilator Verilog C++ simulation for design"
 	@echo "    make clean      - clean most files that can be rebuilt"
 
 # defult target is to make FPGA bitstream for design

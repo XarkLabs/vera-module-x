@@ -205,7 +205,7 @@ module top(
     reg        vram_addr_select_r,            vram_addr_select_next;
     reg  [7:0] vram_data0_r,                  vram_data0_next;
     reg  [7:0] vram_data1_r,                  vram_data1_next;
-    reg        dc_select_r,                   dc_select_next;
+    reg  [5:0] dc_select_r,                   dc_select_next;
     reg        fpga_reconfigure_r,            fpga_reconfigure_next;
     reg        irq_enable_vsync_r,            irq_enable_vsync_next;
     reg        irq_enable_line_r,             irq_enable_line_next;
@@ -253,6 +253,7 @@ module top(
     reg [11:0] l1_vscroll_r,                  l1_vscroll_next;
 
     reg  [1:0] video_output_mode_r,           video_output_mode_next;
+    reg        line_interlace_mode_r,         line_interlace_mode_next;
 
     reg  [7:0] audio_pcm_sample_rate_r,       audio_pcm_sample_rate_next;
     reg        audio_mode_stereo_r,           audio_mode_stereo_next;
@@ -289,38 +290,46 @@ module top(
         5'h02: rddata = vram_addr_select_r ? {vram_addr_incr_1_r, vram_addr_decr_1_r, 2'b0, vram_addr_1_r[16]} : {vram_addr_incr_0_r, vram_addr_decr_0_r, 2'b0, vram_addr_0_r[16]};
         5'h03: rddata = vram_data0_r;
         5'h04: rddata = vram_data1_r;
-        5'h05: rddata = {6'b0, dc_select_r, vram_addr_select_r};
+        5'h05: rddata = {1'b0, dc_select_r, vram_addr_select_r};
 
         5'h06: rddata = {irq_line_r[8], scanline[8], 2'b0, irq_enable_audio_fifo_low_r, irq_enable_sprite_collision_r, irq_enable_line_r, irq_enable_vsync_r};
         5'h07: rddata = {sprite_collisions,   audio_fifo_low,              irq_status_sprite_collision_r, irq_status_line_r, irq_status_vsync_r};
         5'h08: rddata = scanline[7:0];
 
         5'h09: begin
-            if (dc_select_r == 0) begin
-                rddata = {current_field, sprites_enabled_r, l1_enabled_r, l0_enabled_r, 1'b0, chroma_disable_r, video_output_mode_r};
-            end else begin
+            if (dc_select_r == 6'h0) begin
+                rddata = {current_field, sprites_enabled_r, l1_enabled_r, l0_enabled_r, line_interlace_mode_r, chroma_disable_r, video_output_mode_r};
+            end else if (dc_select_r == 6'h1) begin
                 rddata = dc_active_hstart_r[9:2];
+            end else begin
+                rddata = "V";
             end
         end
         5'h0A: begin
-            if (dc_select_r == 0) begin
+            if (dc_select_r == 6'h0) begin
                 rddata = dc_hscale_r;
-            end else begin
+            end else if (dc_select_r == 6'h1) begin
                 rddata = dc_active_hstop_r[9:2];
+            end else begin
+                rddata = 8'h00;
             end
         end
         5'h0B: begin
-            if (dc_select_r == 0) begin
+            if (dc_select_r == 6'h0) begin
                 rddata = dc_vscale_r;
-            end else begin
+            end else if (dc_select_r == 6'h1) begin
                 rddata = dc_active_vstart_r[8:1];
+            end else begin
+                rddata = 8'h01;
             end
         end
         5'h0C: begin
-            if (dc_select_r == 0) begin
+            if (dc_select_r == 6'h0) begin
                 rddata = dc_border_color_r;
-            end else begin
+            end else if (dc_select_r == 6'h1) begin
                 rddata = dc_active_vstop_r[8:1];
+            end else begin
+                rddata = 8'h01;
             end
         end
 
@@ -428,8 +437,8 @@ module top(
 
     wire [16:0] vram_addr             = (access_addr == 5'h03) ? vram_addr_0_r : vram_addr_1_r;
     wire        vram_addr_decr        = (access_addr == 5'h03) ? vram_addr_decr_0_r : vram_addr_decr_1_r;
-    wire [16:0] vram_addr_incremented = vram_addr + {7'b0, increment};
-    wire [16:0] vram_addr_decremented = vram_addr - {7'b0, increment};
+    wire [16:0] vram_addr_incremented = vram_addr + {7'b0, increment};  // width fix
+    wire [16:0] vram_addr_decremented = vram_addr - {7'b0, increment};  // width fix
     wire [16:0] vram_addr_new         = vram_addr_decr ? vram_addr_decremented : vram_addr_incremented;
 
     always @* begin
@@ -456,6 +465,7 @@ module top(
         l0_enabled_next                  = l0_enabled_r;
         l1_enabled_next                  = l1_enabled_r;
         chroma_disable_next              = chroma_disable_r;
+        line_interlace_mode_next         = line_interlace_mode_r;
         dc_hscale_next                   = dc_hscale_r;
         dc_vscale_next                   = dc_vscale_r;
         dc_border_color_next             = dc_border_color_r;
@@ -560,7 +570,7 @@ module top(
                 end
                 5'h05: begin
                     fpga_reconfigure_next = write_data[7];
-                    dc_select_next        = write_data[1];
+                    dc_select_next        = write_data[6:1];
                     vram_addr_select_next = write_data[0];
                 end
 
@@ -581,11 +591,12 @@ module top(
 
                 5'h09: begin
                     if (dc_select_r == 0) begin
-                        sprites_enabled_next   = write_data[6];
-                        l1_enabled_next        = write_data[5];
-                        l0_enabled_next        = write_data[4];
-                        chroma_disable_next    = write_data[2];
-                        video_output_mode_next = write_data[1:0];
+                        sprites_enabled_next     = write_data[6];
+                        l1_enabled_next          = write_data[5];
+                        l0_enabled_next          = write_data[4];
+                        line_interlace_mode_next = write_data[3];
+                        chroma_disable_next      = write_data[2];
+                        video_output_mode_next   = write_data[1:0];
                     end else begin
                         dc_active_hstart_next[9:2] = write_data;
                         dc_active_hstart_next[1:0] = 0;
@@ -594,7 +605,7 @@ module top(
                 5'h0A: begin
                     if (dc_select_r == 0) begin
                         dc_hscale_next            = write_data;
-                    end else begin
+                    end else if (dc_select_r == 1) begin
                         dc_active_hstop_next[9:2] = write_data;
                         dc_active_hstop_next[1:0] = 0;
                     end
@@ -602,7 +613,7 @@ module top(
                 5'h0B: begin
                     if (dc_select_r == 0) begin
                         dc_vscale_next             = write_data;
-                    end else begin
+                    end else if (dc_select_r == 1) begin
                         dc_active_vstart_next[8:1] = write_data;
                         dc_active_vstart_next[0]   = 0;
                     end
@@ -610,7 +621,7 @@ module top(
                 5'h0C: begin
                     if (dc_select_r == 0) begin
                         dc_border_color_next      = write_data;
-                    end else begin
+                    end else if (dc_select_r == 1) begin
                         dc_active_vstop_next[8:1] = write_data;
                         dc_active_vstop_next[0]   = 0;
                     end
@@ -744,6 +755,7 @@ module top(
             l0_enabled_r                  <= 0;
             l1_enabled_r                  <= 0;
             chroma_disable_r              <= 0;
+            line_interlace_mode_r         <= 1;
             dc_hscale_r                   <= 8'd128;
             dc_vscale_r                   <= 8'd128;
             dc_border_color_r             <= 0;
@@ -820,6 +832,7 @@ module top(
             l0_enabled_r                  <= l0_enabled_next;
             l1_enabled_r                  <= l1_enabled_next;
             chroma_disable_r              <= chroma_disable_next;
+            line_interlace_mode_r         <= line_interlace_mode_next;
             dc_hscale_r                   <= dc_hscale_next;
             dc_vscale_r                   <= dc_vscale_next;
             dc_border_color_r             <= dc_border_color_next;
@@ -1123,10 +1136,10 @@ module top(
 
     reg [3:0] sprite_attr_bytesel;
     always @* case (ib_addr_r[1:0])
-        2'd0: sprite_attr_bytesel = 4'b0001;
-        2'd1: sprite_attr_bytesel = 4'b0010;
-        2'd2: sprite_attr_bytesel = 4'b0100;
-        2'd3: sprite_attr_bytesel = 4'b1000;
+        2'd0: sprite_attr_bytesel = 4'b0001;    // width fix
+        2'd1: sprite_attr_bytesel = 4'b0010;    // width fix
+        2'd2: sprite_attr_bytesel = 4'b0100;    // width fix
+        2'd3: sprite_attr_bytesel = 4'b1000;    // width fix
     endcase
 
     sprite_ram sprite_attr_ram(
@@ -1195,7 +1208,7 @@ module top(
     // Palette
     //////////////////////////////////////////////////////////////////////////
     wire [15:0] palette_rgb_data;
-    wire unused_rgb = &{1'b0, palette_rgb_data[15:12]};
+//    wire unused_rgb = &{1'b0, palette_rgb_data[15:12]};
 
     wire        palette_write   = (ib_addr_r[16:9] == 'b11111101) && ib_do_access_r && ib_write_r;
     wire  [1:0] palette_bytesel = ib_addr_r[0] ? 2'b10 : 2'b01;
@@ -1228,6 +1241,8 @@ module top(
     wire [5:0] video_composite_luma, video_composite_chroma;
     wire [3:0] video_rgb_r, video_rgb_g, video_rgb_b;
     wire       video_rgb_sync_n;
+    wire       video_rgb_hsync;
+    wire       video_rgb_vsync;
     wire [5:0] video_composite_chroma2 = chroma_disable_r ? 6'd0 : video_composite_chroma;
 
     video_composite video_composite(
@@ -1236,6 +1251,7 @@ module top(
 
         // Line buffer / palette interface
         .palette_rgb_data(palette_rgb_data[11:0]),
+        .interlace(line_interlace_mode_r),
 
         .next_frame(video_composite_next_frame),
         .next_line(video_composite_next_line),
@@ -1251,7 +1267,9 @@ module top(
         .rgb_r(video_rgb_r),
         .rgb_g(video_rgb_g),
         .rgb_b(video_rgb_b),
-        .rgb_sync_n(video_rgb_sync_n));
+        .rgb_sync_n(video_rgb_sync_n),
+        .rgb_hsync(video_rgb_hsync),
+        .rgb_vsync(video_rgb_vsync));
 `else
     assign  composer_display_current_field = '0;
 `endif
@@ -1323,8 +1341,13 @@ module top(
             vga_r     <= video_rgb_r;
             vga_g     <= video_rgb_g;
             vga_b     <= video_rgb_b;
-            vga_hsync <= video_rgb_sync_n;
-            vga_vsync <= 0;
+            if (chroma_disable_r) begin
+                vga_hsync <= video_rgb_hsync;
+                vga_vsync <= video_rgb_vsync;
+            end else begin
+                vga_hsync <= video_rgb_sync_n;
+                vga_vsync <= 1'b0;
+            end
         end
 `endif
 
