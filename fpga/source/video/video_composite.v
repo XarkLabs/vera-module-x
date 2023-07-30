@@ -49,11 +49,11 @@ module video_composite(
     wire h_hsync_pulse = (hcnt < H_SYNC);
 
     wire h_vsync_pulse =
-        (hcnt >= 0      && hcnt < H_VSYNC_PULSE_LEN) ||                 // BUG: unsigned hcnt >= 0 always true?
+        (/*hcnt >= 0    && */ hcnt < H_VSYNC_PULSE_LEN) ||                 // BUG: unsigned hcnt >= 0 always true?
         (hcnt >= H_HALF && hcnt < H_HALF + H_VSYNC_PULSE_LEN);
 
     wire h_equalization_pulse =
-        (hcnt >= 0      && hcnt < H_EQUALIZATION_PULSE_LEN) ||          // BUG: unsigned hcnt >= 0 always true?
+        (/* hcnt >= 0   && */ hcnt < H_EQUALIZATION_PULSE_LEN) ||          // BUG: unsigned hcnt >= 0 always true?
         (hcnt >= H_HALF && hcnt < H_HALF + H_EQUALIZATION_PULSE_LEN);
 
     wire h_color_burst =
@@ -96,7 +96,7 @@ module video_composite(
         (vcnt >= (531+11'(line_mode)) && vcnt <= (536+11'(line_mode)));
 
     wire v_equalization =
-        (vcnt >=   0 && vcnt <=   5) ||                                 // BUG: unsigned vcnt always >= 0?
+        (/*vcnt >=   0 && */ vcnt <=   5) ||                                 // BUG: unsigned vcnt always >= 0?
         (vcnt >=  12 && vcnt <=  17) ||
         (vcnt >= (525+11'(line_mode)) && vcnt <= (530+11'(line_mode))) ||
         (vcnt >= (537+11'(line_mode)) && vcnt <= (542+11'(line_mode)));

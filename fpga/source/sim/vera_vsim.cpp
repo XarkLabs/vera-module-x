@@ -1626,7 +1626,10 @@ int main(int argc, char ** argv)
 
     top->final();
 
-    tfp->close();
+    if (trace_started)
+    {
+        tfp->close();
+    }
 
     wav_end();
 

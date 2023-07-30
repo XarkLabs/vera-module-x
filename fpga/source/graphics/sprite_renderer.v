@@ -31,10 +31,6 @@ module sprite_renderer(
     output wire [15:0] linebuf_wrdata,
     output wire        linebuf_wren);
 
-// `ifdef XARK_OSS     // Xark: Verilator unused bit warnings
-//     wire unused_bits = &{1'b0, sprite_attr[14:12], linebuf_rddata[11:10]};
-// `endif
-
     reg [3:0] cur_collision_mask_r,   cur_collision_mask_next;
     reg [3:0] frame_collision_mask_r, frame_collision_mask_next;
 
@@ -242,8 +238,6 @@ module sprite_renderer(
     reg  [5:0] xcnt_r, xcnt_next;
     wire [5:0] hflipped_xcnt      = sprite_hflip_r ? ~xcnt_r    : xcnt_r;
     wire [5:0] hflipped_xcnt_next = sprite_hflip_r ? ~xcnt_next : xcnt_next;
-
-//    wire unused_bits2 = &{1'b0, hflipped_xcnt[5:3], hflipped_xcnt_next[1:0]};
 
     // Determine address of current sprite line
     reg [14:0] line_addr_tmp;
